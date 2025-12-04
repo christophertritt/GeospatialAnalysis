@@ -43,6 +43,158 @@ This tool provides automated geospatial analysis capabilities for:
 - Infrastructure optimization scenarios
 - Runoff reduction benefit quantification
 
+## Complete Function Reference
+
+### Core Analysis Module (`scripts/geospatial_analysis.py`)
+
+**Main Class: `GeospatialAnalysisTool`**
+- `__init__(data_dir, output_dir, config_path)`: Initialize analysis tool with configuration
+- `load_data(rail_path, infrastructure_path)`: Load and validate spatial data, create buffers
+- `calculate_vulnerability(imperviousness_raster, dem_path, soils_path)`: Compute multi-factor vulnerability index
+- `analyze_infrastructure_density()`: Calculate infrastructure density metrics per segment
+- `assess_alignment()`: Evaluate correlation between vulnerability and infrastructure placement
+- `perform_spatial_clustering(variable_col)`: Execute spatial autocorrelation analysis
+- `perform_runoff_modeling(storm_events, soil_type)`: Model stormwater runoff scenarios
+- `generate_report()`: Create comprehensive analysis summary
+- `save_results(formats)`: Export results to multiple formats (Shapefile, GeoPackage, CSV, GeoJSON)
+
+### Spatial Clustering (`scripts/spatial_clustering.py`)
+
+- `calculate_morans_i(segments, variable_col)`: Compute Global Moran's I for spatial autocorrelation
+- `interpret_morans_i(I, p_value)`: Interpret Moran's I significance and clustering pattern
+- `calculate_local_morans(segments, variable_col)`: Perform Local Indicators of Spatial Association (LISA)
+- `calculate_hot_spots(segments, variable_col, distance_threshold)`: Getis-Ord Gi* hot spot analysis
+- `perform_spatial_clustering_analysis(segments, variable_col)`: Complete spatial clustering workflow
+
+### Runoff Modeling (`scripts/runoff_modeling.py`)
+
+- `prepare_curve_numbers(segments, soil_type)`: Prepare SCS Curve Numbers based on land cover
+- `adjust_cn_for_gsi(cn_current, density_sqft_per_acre)`: Adjust CN for green infrastructure impact
+- `calculate_runoff_volumes(segments, storm_events)`: Estimate runoff for design storm scenarios
+- `optimize_infrastructure_allocation(segments, total_infrastructure_sqft)`: Optimize GSI placement
+- `calculate_optimization_benefit(segments, storm_event)`: Quantify runoff reduction benefits
+- `perform_runoff_modeling(segments, storm_events, soil_type)`: Complete runoff modeling workflow
+
+### Data Acquisition (`scripts/data_acquisition.py`)
+
+- `fetch_ssurgo_soils_by_bbox(bbox)`: Download SSURGO soils data from USDA NRCS API
+- `fetch_nlcd_impervious(year)`: Instructions for NLCD imperviousness raster download
+- `fetch_fema_nfhl_by_bbox(bbox)`: Download FEMA flood zones via ArcGIS REST API
+- `fetch_noaa_atlas14_depths(lat, lon)`: Retrieve NOAA Atlas 14 precipitation depths
+- `clip_file_to_bbox(input_path, bbox, out_subdir, out_name, target_epsg)`: Clip spatial data to study area
+- `parse_bbox_arg(s)`: Parse bounding box string to coordinate dictionary
+
+### Data Pipeline & Scheduling (`scripts/data_pipeline_scheduler.py`)
+
+**Main Class: `DataPipelineScheduler`**
+- `add_data_source(name, fetch_fn, refresh_days, dependencies)`: Register data source
+- `schedule_refresh(source_name)`: Schedule automated data refresh
+- `run_pipeline(force_refresh)`: Execute complete data acquisition pipeline
+- `generate_status_report()`: Create data freshness and quality report
+- `export_metadata()`: Export data provenance and lineage information
+
+### Multi-Jurisdiction Integration (`scripts/integrations/multi_jurisdiction.py`)
+
+**Main Class: `MultiJurisdictionConsolidator`**
+- `register_jurisdiction(name, bbox, data_sources)`: Register jurisdiction-specific data sources
+- `harmonize_schemas()`: Standardize attribute schemas across jurisdictions
+- `consolidate_infrastructure()`: Merge infrastructure data from multiple jurisdictions
+- `generate_acquisition_status()`: Track data completeness across jurisdictions
+
+### Seattle Open Data Client (`scripts/integrations/seattle_opendata.py`)
+
+**Main Class: `SeattleOpenDataClient`**
+- `fetch_gsi_facilities(bbox, facility_types)`: Download green infrastructure facilities
+- `fetch_stormwater_infrastructure(bbox)`: Download storm drains and catch basins
+- `fetch_land_use(bbox)`: Download zoning and land use data
+- `fetch_boundary(jurisdiction_name)`: Download municipal boundaries
+- `cache_and_validate(data, output_path)`: Cache and validate downloaded data
+
+### NOAA Climate Data (`scripts/integrations/noaa_cdo.py`)
+
+**Main Class: `NOAACDOClient`**
+- `__init__(api_key)`: Initialize with NOAA CDO API key
+- `fetch_precipitation_history(station_id, start_date, end_date)`: Historical precipitation data
+- `fetch_wet_season_totals(station_id, years)`: Aggregate October-March precipitation
+- `find_stations_near(lat, lon, radius_km)`: Locate nearby weather stations
+
+### NWS Forecast Integration (`scripts/integrations/nws_forecast.py`)
+
+**Main Class: `NWSForecastClient`**
+- `get_gridpoint_forecast(lat, lon)`: Retrieve 7-day precipitation forecast
+- `get_extended_outlook(lat, lon)`: Retrieve 6-10 day outlook
+- `apply_climate_scenario(baseline_precip, scenario)`: Apply RCP climate projections
+- `estimate_future_vulnerability(current_vuln, scenario, horizon_year)`: Project future conditions
+
+### USGS Water Services (`scripts/integrations/usgs_water.py`)
+
+**Main Class: `USGSWaterServicesClient`**
+- `get_streamflow_current(site_code)`: Real-time streamflow data
+- `get_streamflow_history(site_code, start_date, end_date)`: Historical streamflow
+- `compare_to_flood_stage(site_code, current_flow)`: Compare to NWS flood stages
+- `find_nearby_gages(lat, lon, radius_km)`: Locate nearby stream gages
+
+### Visualization (`scripts/visualize_results.py`)
+
+- `load_results(output_dir)`: Load analysis results from output directory
+- `plot_correlation(gdf, output_dir)`: Create vulnerability vs. density scatter plot
+- `plot_quadrant_counts(gdf, output_dir)`: Visualize quadrant distribution bar chart
+- `plot_map(gdf, column, title, filename, output_dir, cmap)`: Generate thematic map
+- `main()`: Generate complete visualization suite
+
+### Dashboard (`scripts/dashboard.py`)
+
+**Streamlit Interactive Dashboard Functions:**
+- `load_segment_frame()`: Load analysis segments for interactive exploration
+- `load_infrastructure_raw()`: Load raw infrastructure point data
+- `apply_weighted_vulnerability(buffer_distance, weight_tuple)`: Recalculate vulnerability with custom weights
+- `compute_runoff_scenarios(serialized_segments, events)`: Interactive runoff modeling
+- `build_multilayer_map(data)`: Create interactive Folium map
+- `build_correlation_scatter(data)`: Create interactive Plotly scatter plot
+- `filter_segments(gdf, vuln_range, density_range, jurisdictions, quadrants)`: Dynamic segment filtering
+
+### Dashboard Data Preparation (`scripts/generate_dashboard_data.py`)
+
+- `load_analysis_segments()`: Load segments with all metrics
+- `load_infrastructure()`: Load infrastructure facilities
+- `compute_summary_statistics(segments, infrastructure)`: Calculate summary metrics
+- `create_sample_charts_data(segments)`: Prepare chart-ready datasets
+- `export_lightweight_geojson(segments)`: Export simplified geometry for web display
+- `generate_data_manifest(stats, charts)`: Create metadata manifest
+
+### Format Conversion (`scripts/convert_formats.py`)
+
+- `convert_gpkg_to_shp(root_dir)`: Batch convert GeoPackage to Shapefile format
+
+### Data Merging (`scripts/merge_data.py`)
+
+- `merge_infrastructure()`: Consolidate infrastructure data from multiple sources
+
+### Additional Data Download (`scripts/download_additional_data.py`)
+
+- `download_svi_2020()`: Download CDC Social Vulnerability Index
+- `download_ssurgo_soils()`: Download SSURGO soils via Web Soil Survey
+- `download_osm_infrastructure()`: Extract green infrastructure from OpenStreetMap
+- `download_osm_rail()`: Extract rail corridors from OpenStreetMap
+- `download_sound_transit_boundary()`: Download Sound Transit service area
+
+### GIS Utility Functions (`scripts/utils/gis_functions.py`)
+
+- `validate_spatial_data(gdf, dataset_name)`: Validate geometry and CRS
+- `reproject_to_standard(gdf, target_epsg)`: Reproject to standard coordinate system
+- `create_buffers(gdf, distances_meters)`: Generate multiple buffer distances
+- `split_line_at_points(line, points)`: Segment corridor at station locations
+- `calculate_infrastructure_density(segments, infrastructure, buffer_gdf)`: Spatial join and density calculation
+
+### Statistical Functions (`scripts/utils/statistics.py`)
+
+- `calculate_runoff_depth(precip_inches, curve_number)`: SCS Curve Number runoff equation
+- `calculate_cn_from_imperviousness(imperv_pct, hsg)`: Derive CN from imperviousness
+- `correlation_analysis(x, y, method)`: Pearson and Spearman correlation
+- `classify_vulnerability(score, low_threshold, high_threshold)`: Classify vulnerability level
+- `assign_quadrant(vuln_score, density, vuln_median, density_median)`: Quadrant classification
+- `calculate_gap_index(vuln_score, density, adequacy_threshold)`: Compute protection gap metric
+
 ## Installation
 
 ### Prerequisites
@@ -83,10 +235,10 @@ python scripts/geospatial_analysis.py \
 
 3. Review the synthesized findings in `data/outputs/analysis_summary.txt` (mirrored in `reports/`), which provides the direct answer to the research question along with actionable statistics.
 
-### Command Line Interface
+### Available Scripts & Tools
 
-Run the complete analysis pipeline with required data:
-
+#### 1. **Core Analysis** (`geospatial_analysis.py`)
+Complete 6-phase vulnerability and alignment assessment:
 ```bash
 python scripts/geospatial_analysis.py \
     --rail data/raw/rail/corridor.shp \
@@ -98,24 +250,118 @@ python scripts/geospatial_analysis.py \
     --verbose
 ```
 
-**All three required parameters (rail, infrastructure, imperviousness) must be provided.**
+#### 2. **Data Acquisition** (`download_data.py`)
+Download external datasets for your study area:
+```bash
+python download_data.py --bbox "-122.36,47.58,-122.30,47.62" --verbose
+```
 
-### Visualization & Interaction
+#### 3. **Additional Data Sources** (`download_additional_data.py`)
+Download supplementary datasets (CDC SVI, OSM data, etc.):
+```bash
+python scripts/download_additional_data.py
+```
 
-#### 1. Static Maps & Charts
+#### 4. **Static Visualization** (`visualize_results.py`)
 Generate publication-ready maps and charts:
 ```bash
 python scripts/visualize_results.py --output-dir data/outputs_final
 ```
 
-#### 2. Interactive Dashboard (Streamlit)
-Launch a web-based dashboard to explore the data dynamically:
+#### 5. **Interactive Dashboard** (`dashboard.py`)
+Launch web-based Streamlit dashboard for dynamic exploration:
 ```bash
 streamlit run scripts/dashboard.py
 ```
+Features:
+- Interactive vulnerability weight adjustment
+- Real-time runoff scenario modeling
+- Multi-layer mapping with Folium
+- Correlation analysis and quadrant filtering
+- Data export and download capabilities
 
-#### 3. Jupyter Notebook
-Open `notebooks/interactive_exploration.ipynb` for step-by-step interactive analysis using `geopandas.explore()`.
+#### 6. **Dashboard Data Preparation** (`generate_dashboard_data.py`)
+Prepare lightweight datasets for web dashboard:
+```bash
+python scripts/generate_dashboard_data.py
+```
+
+#### 7. **Spatial Clustering Analysis** (`spatial_clustering.py`)
+Standalone spatial statistics module:
+```python
+from scripts.spatial_clustering import perform_spatial_clustering_analysis
+results = perform_spatial_clustering_analysis(segments, variable_col='gap_index')
+```
+
+#### 8. **Runoff Modeling** (`runoff_modeling.py`)
+Standalone hydrological modeling:
+```python
+from scripts.runoff_modeling import perform_runoff_modeling
+results = perform_runoff_modeling(segments, storm_events=['2-year', '10-year', '25-year'])
+```
+
+#### 9. **Data Pipeline Scheduler** (`data_pipeline_scheduler.py`)
+Automate data refresh and quality monitoring:
+```bash
+python scripts/data_pipeline_scheduler.py --schedule daily --report
+```
+
+#### 10. **Format Conversion** (`convert_formats.py`)
+Batch convert GeoPackage to Shapefile:
+```bash
+python scripts/convert_formats.py
+```
+
+#### 11. **Data Merging** (`merge_data.py`)
+Consolidate infrastructure data from multiple sources:
+```bash
+python scripts/merge_data.py
+```
+
+#### 12. **Jupyter Notebook**
+Interactive step-by-step analysis:
+```bash
+jupyter notebook notebooks/interactive_exploration.ipynb
+```
+
+### Integration Scripts
+
+#### **Seattle Open Data** (`integrations/seattle_opendata.py`)
+```python
+from scripts.integrations.seattle_opendata import SeattleOpenDataClient
+client = SeattleOpenDataClient()
+facilities = client.fetch_gsi_facilities(bbox, facility_types=['rain_garden', 'bioswale'])
+```
+
+#### **NOAA Climate Data** (`integrations/noaa_cdo.py`)
+```python
+from scripts.integrations.noaa_cdo import NOAACDOClient
+client = NOAACDOClient(api_key='YOUR_KEY')
+precip = client.fetch_precipitation_history('GHCND:USW00024233', '2020-01-01', '2024-12-31')
+```
+
+#### **NWS Forecast** (`integrations/nws_forecast.py`)
+```python
+from scripts.integrations.nws_forecast import NWSForecastClient
+client = NWSForecastClient()
+forecast = client.get_gridpoint_forecast(47.6062, -122.3321)
+```
+
+#### **USGS Water Services** (`integrations/usgs_water.py`)
+```python
+from scripts.integrations.usgs_water import USGSWaterServicesClient
+client = USGSWaterServicesClient()
+streamflow = client.get_streamflow_current('12113000')  # Duwamish River
+```
+
+#### **Multi-Jurisdiction Consolidation** (`integrations/multi_jurisdiction.py`)
+```python
+from scripts.integrations.multi_jurisdiction import MultiJurisdictionConsolidator
+consolidator = MultiJurisdictionConsolidator()
+consolidator.register_jurisdiction('Seattle', bbox, data_sources)
+consolidator.register_jurisdiction('Tacoma', bbox, data_sources)
+consolidated = consolidator.consolidate_infrastructure()
+```
 
 ### Data Requirements
 
