@@ -12,7 +12,10 @@ except ImportError:
     from utils.statistics import calculate_runoff_depth, calculate_cn_from_imperviousness
 
 
-# NOAA Atlas 14 design storm depths for Seattle-Tacoma (inches)
+# NOAA Atlas 14 design storm depths for Seattle-Tacoma region
+# 24-hour precipitation depths in inches
+# Location: 47.45°N, 122.31°W (Sea-Tac Airport)
+# Source: https://hdsc.nws.noaa.gov/pfds/
 DESIGN_STORMS = {
     '2-year': 2.2,
     '5-year': 2.6,

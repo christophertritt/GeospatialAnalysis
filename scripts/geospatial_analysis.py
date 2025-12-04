@@ -55,6 +55,12 @@ except ImportError:
         RUNOFF_MODELING_AVAILABLE = False
 
 
+# Standard coordinate reference system for Washington State
+# EPSG:2927 - NAD83(2011) / Washington State Plane South
+# Units: US Survey Feet
+TARGET_CRS = 2927
+
+
 class GeospatialAnalysisTool:
     """Main analysis tool for rail corridor geospatial analysis"""
     
@@ -71,7 +77,7 @@ class GeospatialAnalysisTool:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         # Standard CRS: Washington State Plane South NAD83(2011) EPSG:2927
-        self.target_crs = 2927
+        self.target_crs = TARGET_CRS
         
         # Buffer distances in meters
         self.buffer_distances = [100, 250, 500]

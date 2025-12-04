@@ -6,6 +6,10 @@ import numpy as np
 from shapely.geometry import Point, LineString
 from shapely.ops import split, nearest_points
 
+# Conversion constants
+METERS_TO_FEET = 3.28084  # 1 meter = 3.28084 feet
+SQFT_PER_ACRE = 43560  # Square feet per acre
+
 
 def validate_spatial_data(gdf, dataset_name):
     """
@@ -80,9 +84,6 @@ def create_buffers(gdf, distances_meters):
     Returns:
         Dict of GeoDataFrames with buffers at different distances
     """
-    # Convert meters to feet (WA State Plane is in feet)
-    METERS_TO_FEET = 3.28084
-    
     buffers = {}
     for distance in distances_meters:
         distance_feet = distance * METERS_TO_FEET
@@ -93,7 +94,7 @@ def create_buffers(gdf, distances_meters):
         buffers[f'{distance}m'] = buffer_gdf
         
         # Calculate area
-        area_acres = buffer_gdf.geometry.area.sum() / 43560  # sqft to acres
+        area_acres = buffer_gdf.geometry.area.sum() / SQFT_PER_ACRE
         print(f"{distance}m buffer: {area_acres:.0f} acres")
     
     return buffers
@@ -209,7 +210,7 @@ def calculate_infrastructure_density(segments, infrastructure, buffer_gdf=None):
     
     # Calculate buffer area and density
     result['buffer_area_sqft'] = result.geometry.area
-    result['buffer_area_acres'] = result['buffer_area_sqft'] / 43560
+    result['buffer_area_acres'] = result['buffer_area_sqft'] / SQFT_PER_ACRE
     
     # Calculate density, avoiding division by zero for empty segments
     result['density_sqft_per_acre'] = np.where(

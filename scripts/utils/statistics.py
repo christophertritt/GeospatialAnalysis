@@ -5,6 +5,13 @@ import numpy as np
 from scipy import stats
 
 
+# SCS Curve Number method constants
+# From USDA NRCS Technical Release 55 (TR-55)
+SCS_CN_CONSTANT = 1000  # Used in S = (1000/CN - 10) formula
+SCS_RETENTION_OFFSET = 10  # Offset in potential retention formula
+SCS_INITIAL_ABSTRACTION_RATIO = 0.2  # Ia = 0.2 * S
+
+
 def calculate_runoff_depth(precip_inches, curve_number):
     """
     Calculate runoff depth using SCS Curve Number method
@@ -24,10 +31,10 @@ def calculate_runoff_depth(precip_inches, curve_number):
         Runoff depth in inches
     """
     # Calculate potential maximum retention
-    S = (1000 / curve_number) - 10
+    S = (SCS_CN_CONSTANT / curve_number) - SCS_RETENTION_OFFSET
     
     # Calculate initial abstraction
-    Ia = 0.2 * S
+    Ia = SCS_INITIAL_ABSTRACTION_RATIO * S
     
     # Calculate runoff (only if P > Ia)
     if precip_inches > Ia:
