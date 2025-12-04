@@ -2,6 +2,12 @@
 
 A comprehensive geospatial analysis tool for assessing flood vulnerability and green infrastructure alignment in rail corridors. This tool implements the methodology described in `COMPLETE_METHODOLOGY_GUIDE.txt` for analyzing spatial relationships between permeable pavement infrastructure and flood vulnerability indicators.
 
+## Core Research Question
+
+> **To what extent does current permeable pavement distribution align with stormwater flood vulnerability in the urban rail corridors between Seattle and Tacoma?**
+
+All workflows, data requirements, and reporting in this repository are organized to answer that question as directly as possible. See `docs/research_question_alignment.md` for a guided walkthrough of the analysis and interpretation.
+
 ## Overview
 
 This tool provides automated geospatial analysis capabilities for:
@@ -58,6 +64,24 @@ pip install -r requirements.txt
 - **Utilities**: click, rasterstats
 
 ## Usage
+
+### Quick Start: Alignment Assessment
+
+1. Ensure required datasets listed in [docs/research_question_alignment.md](docs/research_question_alignment.md) are present.
+2. Run the alignment workflow:
+
+```bash
+python scripts/geospatial_analysis.py \
+  --rail data/raw/rail/corridor.shp \
+  --infrastructure data/raw/infrastructure/permeable_pavement.shp \
+  --imperviousness data/raw/landcover/nlcd_2019_impervious_aoi.tif \
+  --dem data/raw/elevation/dem_aoi.tif \
+  --soils data/processed/soils/ssurgo_aoi.gpkg \
+  --config config.yaml \
+  --verbose
+```
+
+3. Review the synthesized findings in `data/outputs/analysis_summary.txt` (mirrored in `reports/`), which provides the direct answer to the research question along with actionable statistics.
 
 ### Command Line Interface
 

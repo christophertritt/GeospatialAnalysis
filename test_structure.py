@@ -4,101 +4,71 @@ Test script to verify project structure and basic imports
 """
 import os
 import sys
+import pytest
 
-def test_structure():
-    """Test that all required files and directories exist"""
-    print("="*70)
-    print("TESTING PROJECT STRUCTURE")
-    print("="*70)
-    
-    required_files = [
-        'README.md',
-        'LICENSE',
-        'requirements.txt',
-        'setup.py',
-        'COMPLETE_METHODOLOGY_GUIDE.txt',
-        'scripts/geospatial_analysis.py',
-        'scripts/utils/__init__.py',
-        'scripts/utils/gis_functions.py',
-        'scripts/utils/statistics.py',
-        'scripts/spatial_clustering.py',
-        'scripts/runoff_modeling.py',
-        'example_usage.py',
-        'test_tool.py',
-        'docs/DATA_ACQUISITION_GUIDE.md'
-    ]
-    
-    required_dirs = [
-        'data/raw',
-        'data/processed',
-        'data/outputs',
-        'figures/maps',
-        'figures/charts',
-        'scripts/utils',
-        'analysis',
-        'docs'
-    ]
-    
-    print("\nChecking required files...")
-    all_files_exist = True
-    for file_path in required_files:
-        if os.path.exists(file_path):
-            print(f"✓ {file_path}")
-        else:
-            print(f"✗ {file_path} - MISSING")
-            all_files_exist = False
-    
-    print("\nChecking required directories...")
-    all_dirs_exist = True
-    for dir_path in required_dirs:
-        if os.path.isdir(dir_path):
-            print(f"✓ {dir_path}/")
-        else:
-            print(f"✗ {dir_path}/ - MISSING")
-            all_dirs_exist = False
-    
-    print("\nChecking Python syntax...")
-    python_files = [
-        'scripts/geospatial_analysis.py',
-        'scripts/utils/__init__.py',
-        'scripts/utils/gis_functions.py',
-        'scripts/utils/statistics.py',
-        'scripts/spatial_clustering.py',
-        'scripts/runoff_modeling.py',
-        'example_usage.py',
-        'test_tool.py',
-        'setup.py'
-    ]
-    
-    syntax_ok = True
-    for py_file in python_files:
-        try:
-            with open(py_file, 'r') as f:
-                code = f.read()
-            compile(code, py_file, 'exec')
-            print(f"✓ {py_file} - syntax OK")
-        except SyntaxError as e:
-            print(f"✗ {py_file} - SYNTAX ERROR: {e}")
-            syntax_ok = False
-        except FileNotFoundError:
-            print(f"✗ {py_file} - FILE NOT FOUND")
-            syntax_ok = False
-    
-    print("\n" + "="*70)
-    if all_files_exist and all_dirs_exist and syntax_ok:
-        print("✓ ALL STRUCTURE TESTS PASSED")
-        print("="*70)
-        print("\nProject structure is complete and valid!")
-        print("\nTo install dependencies and run the tool:")
-        print("  1. pip install -r requirements.txt")
-        print("  2. python test_tool.py  # Full test with dependencies")
-        print("  3. python scripts/geospatial_analysis.py  # Run analysis")
-        return 0
-    else:
-        print("✗ SOME TESTS FAILED")
-        print("="*70)
-        return 1
+REQUIRED_FILES = [
+    'README.md',
+    'LICENSE',
+    'requirements.txt',
+    'setup.py',
+    'COMPLETE_METHODOLOGY_GUIDE.txt',
+    'scripts/geospatial_analysis.py',
+    'scripts/utils/__init__.py',
+    'scripts/utils/gis_functions.py',
+    'scripts/utils/statistics.py',
+    'scripts/spatial_clustering.py',
+    'scripts/runoff_modeling.py',
+    'example_usage.py',
+    'test_tool.py',
+    'docs/DATA_ACQUISITION_GUIDE.md'
+]
 
+REQUIRED_DIRS = [
+    'data/raw',
+    'data/processed',
+    'data/outputs',
+    'figures/maps',
+    'figures/charts',
+    'scripts/utils',
+    'analysis',
+    'docs'
+]
+
+PYTHON_FILES = [
+    'scripts/geospatial_analysis.py',
+    'scripts/utils/__init__.py',
+    'scripts/utils/gis_functions.py',
+    'scripts/utils/statistics.py',
+    'scripts/spatial_clustering.py',
+    'scripts/runoff_modeling.py',
+    'example_usage.py',
+    'test_tool.py',
+    'setup.py'
+]
+
+@pytest.mark.parametrize("file_path", REQUIRED_FILES)
+def test_file_exists(file_path):
+    """Test that required file exists"""
+    assert os.path.exists(file_path), f"Missing file: {file_path}"
+
+@pytest.mark.parametrize("dir_path", REQUIRED_DIRS)
+def test_directory_exists(dir_path):
+    """Test that required directory exists"""
+    assert os.path.isdir(dir_path), f"Missing directory: {dir_path}"
+
+@pytest.mark.parametrize("py_file", PYTHON_FILES)
+def test_python_syntax(py_file):
+    """Test that python file has valid syntax"""
+    if not os.path.exists(py_file):
+        pytest.skip(f"File not found: {py_file}")
+    
+    with open(py_file, 'r') as f:
+        code = f.read()
+    
+    try:
+        compile(code, py_file, 'exec')
+    except SyntaxError as e:
+        pytest.fail(f"Syntax error in {py_file}: {e}")
 
 if __name__ == '__main__':
-    sys.exit(test_structure())
+    sys.exit(pytest.main([__file__]))

@@ -1,0 +1,39 @@
+======================================================================
+GEOSPATIAL ANALYSIS SUMMARY REPORT
+Rail Corridor Flood Vulnerability and Infrastructure Assessment
+======================================================================
+
+STUDY AREA
+----------------------------------------------------------------------
+Number of segments: 1746
+Total area: 195061 acres
+CRS: EPSG:2927
+
+VULNERABILITY ASSESSMENT
+----------------------------------------------------------------------
+Mean vulnerability: 7.88
+Std dev: 1.15
+Range: 4.50 - 8.50
+
+Classification:
+  High: 1473
+  Moderate: 273
+
+INFRASTRUCTURE DENSITY
+----------------------------------------------------------------------
+Mean density: 0.1 sq ft/acre
+Median density: 0.0 sq ft/acre
+Range: 0.0 - 11.2 sq ft/acre
+Segments with zero infrastructure: 1703
+
+ALIGNMENT ANALYSIS
+----------------------------------------------------------------------
+Correlation (r): -0.106
+P-value: 0.0000
+
+Quadrant Distribution:
+  Q4_HighVuln_HighDensity: 1213
+  Q2_LowVuln_HighDensity: 533
+
+Mean gap index: 7.88
+High gap segments (>5): 1611

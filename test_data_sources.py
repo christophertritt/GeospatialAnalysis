@@ -6,7 +6,7 @@ import requests
 import json
 from datetime import datetime
 
-def test_endpoint(name, url, method='GET', **kwargs):
+def check_endpoint(name, url, method='GET', **kwargs):
     """Test if an endpoint is accessible"""
     print(f"\n{'='*70}")
     print(f"Testing: {name}")
@@ -62,14 +62,14 @@ def main():
     results = {}
 
     # 1. FEMA NFHL (National Flood Hazard Layer)
-    results['FEMA NFHL'] = test_endpoint(
+    results['FEMA NFHL'] = check_endpoint(
         "FEMA NFHL - National Flood Hazard Layer",
         "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer",
         params={'f': 'json'}
     )
 
     # 2. USDA SSURGO Soils
-    results['USDA SSURGO'] = test_endpoint(
+    results['USDA SSURGO'] = check_endpoint(
         "USDA SSURGO - Soil Data Access API",
         "https://sdmdataaccess.nrcs.usda.gov/Tabular/post.rest",
         method='POST',
@@ -78,19 +78,19 @@ def main():
     )
 
     # 3. NLCD Data Portal (main page)
-    results['MRLC NLCD Portal'] = test_endpoint(
+    results['MRLC NLCD Portal'] = check_endpoint(
         "MRLC NLCD Data Portal",
         "https://www.mrlc.gov/data"
     )
 
     # 4. NOAA Atlas 14 (info page)
-    results['NOAA Atlas 14'] = test_endpoint(
+    results['NOAA Atlas 14'] = check_endpoint(
         "NOAA Atlas 14 Precipitation Data",
         "https://hdsc.nws.noaa.gov/pfds/"
     )
 
     # 5. USGS National Map (elevation data portal)
-    results['USGS National Map'] = test_endpoint(
+    results['USGS National Map'] = check_endpoint(
         "USGS National Map - Elevation Products",
         "https://apps.nationalmap.gov/services"
     )

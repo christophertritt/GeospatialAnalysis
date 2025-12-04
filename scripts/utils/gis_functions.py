@@ -89,7 +89,8 @@ def create_buffers(gdf, distances_meters):
         distance_feet = distance * METERS_TO_FEET
         buffer_gdf = gdf.copy()
         buffer_gdf['geometry'] = gdf.geometry.buffer(distance_feet)
-        buffer_gdf = buffer_gdf.dissolve()
+        # Do not dissolve to preserve segment granularity
+        # buffer_gdf = buffer_gdf.dissolve()
         buffer_gdf['buffer_distance_m'] = distance
         buffers[f'{distance}m'] = buffer_gdf
         

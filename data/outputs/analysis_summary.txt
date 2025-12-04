@@ -1,153 +1,39 @@
-
 ======================================================================
-RESEARCH QUESTION ANALYSIS REPORT
-======================================================================
-
-Research Question:
-To what extent does current permeable pavement distribution align with 
-stormwater flood vulnerability in the urban rail corridors between 
-Seattle and Tacoma?
-
-======================================================================
-ANSWER: POOR ALIGNMENT - SIGNIFICANT GAPS IDENTIFIED
+GEOSPATIAL ANALYSIS SUMMARY REPORT
+Rail Corridor Flood Vulnerability and Infrastructure Assessment
 ======================================================================
 
-SUMMARY OF FINDINGS:
-The analysis reveals a POOR alignment between green stormwater 
-infrastructure (GSI) deployment and flood vulnerability in the 
-Seattle-Tacoma rail corridor. Only 5.8% of the corridor demonstrates 
-optimal alignment (high vulnerability + high infrastructure), while 
-44.2% represents critical gaps (high vulnerability + low infrastructure).
+STUDY AREA
+----------------------------------------------------------------------
+Number of segments: 1746
+Total area: 195061 acres
+CRS: EPSG:2927
 
-======================================================================
-KEY STATISTICS
-======================================================================
+VULNERABILITY ASSESSMENT
+----------------------------------------------------------------------
+Mean vulnerability: 7.88
+Std dev: 1.15
+Range: 4.50 - 8.50
 
-STUDY AREA:
-  • Corridor Length: ~542 miles (1,746 rail segments)
-  • Analysis Segments: 2,319
-  • Total Area: 112,277 acres
+Classification:
+  High: 1473
+  Moderate: 273
 
-FLOOD VULNERABILITY:
-  • Mean Vulnerability Score: 8.42/10
-  • High Vulnerability Segments: 2,099 (90.5%)
-  • High Vulnerability Area: 101,626 acres (90.5% of corridor)
-  • Mean Imperviousness: 84.2%
+INFRASTRUCTURE DENSITY
+----------------------------------------------------------------------
+Mean density: 0.1 sq ft/acre
+Median density: 0.0 sq ft/acre
+Range: 0.0 - 11.2 sq ft/acre
+Segments with zero infrastructure: 1703
 
-GREEN INFRASTRUCTURE DEPLOYMENT:
-  • Total GSI Facilities: 13,208
-  • Segments with Infrastructure: 481 (20.7%)
-  • Total Infrastructure Area: 7,367,040 sq ft
-  • Mean Density: 65.6 sq ft/acre
+ALIGNMENT ANALYSIS
+----------------------------------------------------------------------
+Correlation (r): -0.106
+P-value: 0.0000
 
-ALIGNMENT ANALYSIS:
-  
 Quadrant Distribution:
-  • Q1 (High Vuln + High Infra) - WELL ALIGNED:
-    135 segments (5.8%)
-    6,536 acres
-  
-  • Q2 (High Vuln + Low Infra) - CRITICAL GAP:
-    1025 segments (44.2%)
-    49,627 acres
-  
-  • Q3 (Low Vuln + High Infra) - OVERSERVED:
-    106 segments (4.6%)
-  
-  • Q4 (Low Vuln + Low Infra) - APPROPRIATE:
-    1053 segments (45.4%)
+  Q4_HighVuln_HighDensity: 1213
+  Q2_LowVuln_HighDensity: 533
 
-======================================================================
-INTERPRETATION
-======================================================================
-
-EXTENT OF ALIGNMENT: LIMITED (5.8%)
-
-Only 135 segments (5.8% of the corridor) show optimal alignment where 
-high vulnerability coincides with high infrastructure deployment. This 
-represents just 6,536 acres of the 112,277-acre corridor.
-
-CRITICAL FINDINGS:
-
-1. MASSIVE GAP: 44.2% of corridor (49,627 acres) has HIGH vulnerability 
-   but LOW infrastructure. These 1,025 segments represent areas where 
-   stormwater flooding risk is elevated but GSI deployment is minimal.
-
-2. HIGH CORRIDOR VULNERABILITY: 90.5% of the rail corridor exhibits 
-   high flood vulnerability (mean score 8.42/10), driven by:
-   - High imperviousness (84.2% mean)
-   - Urban development patterns
-   - Limited natural drainage
-
-3. INSUFFICIENT COVERAGE: Only 20.7% of the corridor area has any GSI 
-   infrastructure, leaving 79.3% unprotected.
-
-4. NO STATISTICAL CORRELATION: Pearson correlation r=0.000 (p=0.998) 
-   indicates infrastructure deployment is NOT systematically targeted 
-   to high-vulnerability areas.
-
-SPATIAL PATTERNS:
-
-• Infrastructure is concentrated in Seattle proper (54,720 facilities)
-• Tacoma corridor largely unserved
-• Deployment appears driven by:
-  - Jurisdictional boundaries (Seattle vs. other)
-  - Development timing
-  - NOT by flood vulnerability targeting
-
-======================================================================
-RECOMMENDATIONS
-======================================================================
-
-PRIORITY 1: Address Q2 Gap Segments (High Priority)
-  • Target: 1,025 segments (49,627 acres)
-  • Focus: High vulnerability + Low infrastructure
-  • Strategy: Prioritize GSI deployment in these areas
-
-PRIORITY 2: Expand Coverage Beyond Seattle
-  • Current: Seattle-centric deployment
-  • Needed: Regional coordination (Tacoma, Kent, Auburn, etc.)
-  • Approach: Inter-jurisdictional planning
-
-PRIORITY 3: Vulnerability-Based Targeting
-  • Implement data-driven site selection
-  • Use vulnerability index to prioritize projects
-  • Move beyond opportunistic deployment
-
-PRIORITY 4: Scale Up Investment
-  • Current coverage: 20.7% of corridor
-  • Target: Minimum 50% coverage in high-vulnerability areas
-  • Estimated need: ~30,000 additional acres of GSI
-
-======================================================================
-DATA SOURCES
-======================================================================
-
-Rail Network: OpenStreetMap (1,746 features)
-Green Infrastructure: Seattle Public Utilities (54,720 facilities)
-Imperviousness: MRLC NLCD 2021
-Elevation: USGS 3DEP
-Flood Zones: FEMA NFHL
-Soils: USDA SSURGO
-Precipitation: NOAA Atlas 14
-
-Analysis Date: 2025-12-03T20:17:07.826133
-
-======================================================================
-CONCLUSION
-======================================================================
-
-The current permeable pavement distribution shows POOR ALIGNMENT with 
-flood vulnerability in the Seattle-Tacoma rail corridor. 
-
-With only 5.8% of the corridor demonstrating optimal infrastructure 
-placement and 44.2% representing critical gaps, there is substantial 
-opportunity to improve flood resilience through strategic GSI deployment 
-targeted to high-vulnerability areas.
-
-The findings suggest infrastructure deployment has been driven more by 
-jurisdictional and opportunistic factors than by systematic flood risk 
-assessment. A vulnerability-based targeting approach could significantly 
-improve the efficiency and effectiveness of future investments.
-
-======================================================================
+Mean gap index: 7.88
+High gap segments (>5): 1611

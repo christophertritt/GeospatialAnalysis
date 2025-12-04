@@ -185,9 +185,19 @@ class GeospatialAnalysisTool:
         if imperviousness_raster and os.path.exists(imperviousness_raster):
             print(f"\nExtracting imperviousness from: {imperviousness_raster}")
             try:
+                import rasterio
                 from rasterstats import zonal_stats
+                
+                # Check raster CRS and reproject segments if needed
+                with rasterio.open(imperviousness_raster) as src:
+                    raster_crs = src.crs
+                    print(f"  Raster CRS: {raster_crs}")
+                
+                # Reproject segments to match raster CRS for zonal stats
+                segments_proj = self.segments.to_crs(raster_crs)
+                
                 stats = zonal_stats(
-                    self.segments,
+                    segments_proj,
                     imperviousness_raster,
                     stats=['mean', 'median'],
                     nodata=-9999
@@ -212,13 +222,27 @@ class GeospatialAnalysisTool:
                 import rasterio
                 from rasterstats import zonal_stats
 
+                # Check raster CRS and reproject segments if needed
+                with rasterio.open(dem_path) as src:
+                    dem_crs = src.crs
+                    print(f"  DEM CRS: {dem_crs}")
+                
+                # Reproject segments to match DEM CRS for zonal stats
+                segments_dem = self.segments.to_crs(dem_crs)
+
+                # Read DEM into memory to avoid VRT/IO segfaults with rasterstats
+                dem_array = src.read(1)
+                dem_transform = src.transform
+                dem_nodata = src.nodata
+
                 # Calculate slope from DEM (would need richdem or gdal)
                 # For now, extract elevation and approximate slope
                 stats = zonal_stats(
-                    self.segments,
-                    dem_path,
-                    stats=['mean', 'std'],
-                    nodata=-9999
+                    segments_dem,
+                    dem_array,
+                    affine=dem_transform,
+                    nodata=dem_nodata,
+                    stats=['mean', 'std']
                 )
                 # Approximate slope from elevation std dev
                 slope = np.array([s['std']/10 if s['std'] is not None else 2.0 for s in stats])
@@ -248,6 +272,10 @@ class GeospatialAnalysisTool:
             print(f"\nProcessing soils data from: {soils_path}")
             try:
                 soils = gpd.read_file(soils_path)
+                if soils.crs != self.segments.crs:
+                    print(f"  Reprojecting soils from {soils.crs} to {self.segments.crs}")
+                    soils = soils.to_crs(self.segments.crs)
+                
                 # Spatial join to get dominant soil type per segment
                 joined = gpd.sjoin(self.segments, soils, how='left', predicate='intersects')
                 # Extract hydrologic group (assuming column name 'hydgrpdcd' or 'HYDGRP')
