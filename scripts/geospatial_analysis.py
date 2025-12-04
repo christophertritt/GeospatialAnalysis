@@ -329,8 +329,126 @@ class GeospatialAnalysisTool:
         print(f"\nVulnerability Classification:")
         print(self.segments['vuln_class'].value_counts())
     
+    def analyze_context(self, flood_zones_path=None, svi_path=None, canopy_raster=None, zoning_path=None):
+        """
+        Analyze additional context layers (Flood Zones, SVI, Canopy, Zoning)
+        
+        Args:
+            flood_zones_path: Path to FEMA NFHL shapefile
+            svi_path: Path to CDC SVI shapefile
+            canopy_raster: Path to NLCD Tree Canopy raster
+            zoning_path: Path to Zoning shapefile
+        """
+        print("\n" + "="*70)
+        print("PHASE 2.5: CONTEXTUAL ANALYSIS")
+        print("="*70)
+        
+        if self.segments is None:
+            print("Error: No segments loaded.")
+            return
+
+        # 1. FEMA Flood Zones
+        if flood_zones_path and os.path.exists(flood_zones_path):
+            print(f"\nProcessing Flood Zones: {flood_zones_path}")
+            try:
+                flood = gpd.read_file(flood_zones_path)
+                if flood.crs != self.segments.crs:
+                    flood = flood.to_crs(self.segments.crs)
+                
+                # Filter for high risk zones (A, AE, V, VE)
+                high_risk = flood[flood['FLD_ZONE'].isin(['A', 'AE', 'V', 'VE'])]
+                
+                # Spatial join to flag segments
+                # Using 'intersects' to see if any part of segment touches flood zone
+                joined = gpd.sjoin(self.segments, high_risk, how='left', predicate='intersects')
+                
+                # Create binary flag
+                self.segments['in_flood_zone'] = self.segments.index.isin(joined.index).astype(int)
+                print(f"  Segments in high-risk flood zones: {self.segments['in_flood_zone'].sum()}")
+                
+            except Exception as e:
+                print(f"  Warning: Failed to process flood zones: {e}")
+        
+        # 2. Social Vulnerability Index (SVI)
+        if svi_path and os.path.exists(svi_path):
+            print(f"\nProcessing SVI Data: {svi_path}")
+            try:
+                svi = gpd.read_file(svi_path)
+                if svi.crs != self.segments.crs:
+                    svi = svi.to_crs(self.segments.crs)
+                
+                # Spatial join (centroid of segment to SVI polygon)
+                # Use centroids to avoid one segment matching multiple tracts
+                centroids = self.segments.copy()
+                centroids.geometry = centroids.geometry.centroid
+                
+                joined = gpd.sjoin(centroids, svi, how='left', predicate='within')
+                
+                # Extract RPL_THEMES (Overall SVI)
+                # Map back to segments using index
+                if 'RPL_THEMES' in joined.columns:
+                    self.segments['svi_score'] = joined['RPL_THEMES']
+                    print(f"  SVI scores assigned. Mean: {self.segments['svi_score'].mean():.2f}")
+                else:
+                    print("  Warning: 'RPL_THEMES' column not found in SVI data")
+                    
+            except Exception as e:
+                print(f"  Warning: Failed to process SVI: {e}")
+
+        # 3. Tree Canopy
+        if canopy_raster and os.path.exists(canopy_raster):
+            print(f"\nExtracting Tree Canopy: {canopy_raster}")
+            try:
+                import rasterio
+                from rasterstats import zonal_stats
+                
+                with rasterio.open(canopy_raster) as src:
+                    raster_crs = src.crs
+                
+                segments_proj = self.segments.to_crs(raster_crs)
+                
+                stats = zonal_stats(
+                    segments_proj,
+                    canopy_raster,
+                    stats=['mean'],
+                    nodata=255  # NLCD nodata is often 255
+                )
+                self.segments['canopy_mean'] = [s['mean'] if s['mean'] is not None else 0 for s in stats]
+                print(f"  Mean canopy cover: {self.segments['canopy_mean'].mean():.1f}%")
+                
+            except Exception as e:
+                print(f"  Warning: Failed to extract canopy: {e}")
+
+        # 4. Zoning
+        if zoning_path and os.path.exists(zoning_path):
+            print(f"\nProcessing Zoning: {zoning_path}")
+            try:
+                zoning = gpd.read_file(zoning_path)
+                if zoning.crs != self.segments.crs:
+                    zoning = zoning.to_crs(self.segments.crs)
+                
+                # Spatial join (largest overlap)
+                # For simplicity, use centroid
+                centroids = self.segments.copy()
+                centroids.geometry = centroids.geometry.centroid
+                
+                joined = gpd.sjoin(centroids, zoning, how='left', predicate='within')
+                
+                # Extract zoning code (adjust column name as needed, e.g., 'ZONE_CODE', 'CLASS')
+                # Looking for common names
+                zone_col = next((col for col in ['ZONE_CODE', 'CLASS', 'ZONING', 'ZONE'] if col in joined.columns), None)
+                
+                if zone_col:
+                    self.segments['zoning_code'] = joined[zone_col]
+                    print(f"  Zoning assigned. Categories: {self.segments['zoning_code'].nunique()}")
+                else:
+                    print("  Warning: Could not identify zoning code column")
+                    
+            except Exception as e:
+                print(f"  Warning: Failed to process zoning: {e}")
+
     def analyze_infrastructure_density(self):
-        """Calculate infrastructure density for segments"""
+        """Analyze infrastructure density per segment"""
         print("\n" + "="*70)
         print("PHASE 3: INFRASTRUCTURE DENSITY ANALYSIS")
         print("="*70)
@@ -607,6 +725,22 @@ Example Usage:
         help='Path to SSURGO soils shapefile (optional)'
     )
     parser.add_argument(
+        '--flood-zones',
+        help='Path to FEMA NFHL shapefile (optional)'
+    )
+    parser.add_argument(
+        '--svi',
+        help='Path to CDC SVI shapefile (optional)'
+    )
+    parser.add_argument(
+        '--canopy',
+        help='Path to NLCD Tree Canopy raster (optional)'
+    )
+    parser.add_argument(
+        '--zoning',
+        help='Path to Zoning shapefile (optional)'
+    )
+    parser.add_argument(
         '--data-dir',
         help='Base data directory',
         default='data'
@@ -681,6 +815,14 @@ Example Usage:
             imperviousness_raster=args.imperviousness,
             dem_path=args.dem,
             soils_path=args.soils
+        )
+
+        # Phase 2.5: Contextual Analysis
+        tool.analyze_context(
+            flood_zones_path=args.flood_zones,
+            svi_path=args.svi,
+            canopy_raster=args.canopy,
+            zoning_path=args.zoning
         )
 
         # Phase 3: Analyze infrastructure density

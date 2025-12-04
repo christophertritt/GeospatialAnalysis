@@ -183,6 +183,45 @@ def download_all_data(bbox, nlcd_year=2019, verbose=False):
     print("    - Include 'AreaSqFt' attribute for facility size")
     results['infrastructure'] = None
 
+    # 8. Social Vulnerability Index (SVI)
+    print_banner("8. Social Vulnerability Index (SVI)")
+    print("⚠️  MANUAL DOWNLOAD REQUIRED")
+    print("\nCDC SVI Data:")
+    print("  1. Visit: https://www.atsdr.cdc.gov/placeandhealth/svi/data_documentation_download.html")
+    print("  2. Select Year: 2020")
+    print("  3. Select State: Washington")
+    print("  4. Download Shapefile (SVI2020_WASHINGTON_county.zip or similar)")
+    print("  5. Unzip and place in: data/raw/demographics/")
+    print("  6. Recommended filename: svi_wa_2020.shp")
+    results['svi'] = None
+
+    # 9. Tree Canopy
+    print_banner("9. Tree Canopy Cover")
+    print("⚠️  MANUAL DOWNLOAD REQUIRED")
+    print("\nNLCD Tree Canopy:")
+    print("  1. Visit: https://www.mrlc.gov/viewer/")
+    print("  2. Select 'NLCD 2021' -> 'Tree Canopy'")
+    print("  3. Download for area of interest")
+    print("  4. Place in: data/raw/landcover/")
+    print("  5. Recommended filename: nlcd_2021_canopy_aoi.tif")
+    results['canopy'] = None
+
+    # 10. Zoning & Land Use
+    print_banner("10. Zoning & Land Use")
+    print("⚠️  MANUAL DOWNLOAD REQUIRED")
+    print("\nZoning Data:")
+    print("  Option 1: Washington State Zoning Atlas (WAZA)")
+    print("    - Visit: https://geo.wa.gov/datasets/wa-geoservices::waza-zoning-atlas-public-1/explore")
+    print("    - Click 'Download' -> 'Shapefile' or 'GeoJSON'")
+    print("    - Place in: data/raw/zoning/")
+    print("    - Recommended filename: waza_zoning.shp or waza_zoning.geojson")
+    print("\n  Option 2: Seattle Open Data")
+    print("    - Visit: https://data.seattle.gov/Land-Base/Zoning/2hat-teca")
+    print("    - Download Shapefile")
+    print("    - Place in: data/raw/zoning/")
+    print("    - Recommended filename: zoning.shp")
+    results['zoning'] = None
+
     # Summary
     print_banner("DOWNLOAD SUMMARY")
 
@@ -196,7 +235,10 @@ def download_all_data(bbox, nlcd_year=2019, verbose=False):
         'NOAA Atlas 14': str(results.get('precipitation', 'data/raw/precip/atlas14_*.json')),
         'Elevation/DEM': 'data/raw/elevation/dem_aoi.tif',
         'Rail Corridor': 'data/raw/rail/corridor.shp',
-        'Infrastructure': 'data/raw/infrastructure/permeable_pavement.shp'
+        'Infrastructure': 'data/raw/infrastructure/permeable_pavement.shp',
+        'SVI (Social Vuln)': 'data/raw/demographics/svi_wa_2020.shp',
+        'Tree Canopy': 'data/raw/landcover/nlcd_2021_canopy_aoi.tif',
+        'Zoning': 'data/raw/zoning/zoning.shp'
     }
 
     print("\nAutomated Downloads:")
