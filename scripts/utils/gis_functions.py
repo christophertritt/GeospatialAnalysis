@@ -175,8 +175,13 @@ def calculate_infrastructure_density(segments, infrastructure, buffer_gdf=None):
     if 'segment_id' in buffer_gdf.columns:
         group_col = 'segment_id'
     else:
-        group_col = buffer_gdf.index.name or 'index'
-        buffer_gdf = buffer_gdf.reset_index()
+        # Ensure we have an index column to group by
+        if buffer_gdf.index.name:
+            group_col = buffer_gdf.index.name
+            buffer_gdf = buffer_gdf.reset_index()
+        else:
+            buffer_gdf = buffer_gdf.reset_index()
+            group_col = 'index'
     
     # Count facilities and sum area
     area_col = None
@@ -205,6 +210,12 @@ def calculate_infrastructure_density(segments, infrastructure, buffer_gdf=None):
     # Calculate buffer area and density
     result['buffer_area_sqft'] = result.geometry.area
     result['buffer_area_acres'] = result['buffer_area_sqft'] / 43560
-    result['density_sqft_per_acre'] = result['total_area_sqft'] / result['buffer_area_acres'].replace(0, 1)
+    
+    # Calculate density, avoiding division by zero for empty segments
+    result['density_sqft_per_acre'] = np.where(
+        result['buffer_area_acres'] > 0,
+        result['total_area_sqft'] / result['buffer_area_acres'],
+        0
+    )
     
     return result

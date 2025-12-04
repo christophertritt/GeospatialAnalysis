@@ -109,7 +109,7 @@ def calculate_local_morans(segments, variable_col):
         
         segments['lisa_cluster'] = segments.apply(classify_cluster, axis=1)
         
-        print(f"\nLISA Cluster Summary:")
+        print("\nLISA Cluster Summary:")
         print(segments['lisa_cluster'].value_counts())
         
         return segments
@@ -178,7 +178,7 @@ def calculate_hot_spots(segments, variable_col, distance_threshold=15840):
         
         segments['hotspot_class'] = segments.apply(classify_hotspot, axis=1)
         
-        print(f"\nHot Spot Analysis Summary:")
+        print("\nHot Spot Analysis Summary:")
         print(segments['hotspot_class'].value_counts())
         
         return segments
