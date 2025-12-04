@@ -1,41 +1,79 @@
-# External Data Sources - Accessibility Status
+# External Data Sources - Regional Expansion Status
 
 **Last Updated:** December 3, 2025
 
 ## Summary
 
-✅ **All data sources are accessible** (5/5)
+✅ **Critical Data Acquired**
+The project has successfully acquired the core datasets needed for the regional analysis (Seattle to Tacoma).
 
-The [scripts/data_acquisition.py](scripts/data_acquisition.py) script requires updates to use the correct URLs.
+| Dataset | Source | Status | Notes |
+|---------|--------|--------|-------|
+| **Rail Corridor** | OpenStreetMap | ✅ Acquired | Full regional coverage (Seattle-Tacoma) |
+| **Infrastructure** | OpenStreetMap | ✅ Acquired | Proxy data (rain gardens, swales, permeable paving) used for 8/9 cities |
+| **Soils** | USDA SSURGO | ✅ Acquired | 8,242 map units downloaded via SDA REST API |
+| **Flood Zones** | FEMA NFHL | ✅ Acquired | Used existing processed file |
+| **Imperviousness** | NLCD 2021 | ✅ Acquired | Used existing raster |
+| **Elevation** | USGS DEM | ✅ Acquired | Used existing raster |
+| **Social Vulnerability** | CDC SVI | ❌ Failed | URL 404. Manual download required. |
+| **Transit Boundaries** | Sound Transit | ❌ Failed | URL 404. |
+
+---
+
+## 1. Infrastructure Data (Regional)
+
+**Status:** ✅ PROXY DATA ACQUIRED
+**Source:** OpenStreetMap (Overpass API)
+
+### Strategy
+Since municipal GSI data was unavailable for Tukwila, Renton, Kent, Auburn, Sumner, Puyallup, Fife, and Tacoma, we used OSM tags as a proxy:
+- `surface=pervious_paving`
+- `description~"rain garden"`
+- `swale`
+- `landuse=basin` + `basin=detention`
+
+### Result
+- **1,015 regional features** acquired.
+- Merged with **169 Seattle features**.
+- Total: **1,184 infrastructure assets**.
 
 ---
 
-## 1. FEMA NFHL (National Flood Hazard Layer) ✅
+## 2. USDA SSURGO Soils
 
-**Status:** ACCESSIBLE
-**API Endpoint:** `https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer`
+**Status:** ✅ ACQUIRED
+**Source:** USDA SDA REST API
 
-### Issue in Code
-The [data_acquisition.py:105](scripts/data_acquisition.py#L105) uses an outdated URL:
-```python
-# Current (INCORRECT):
-service_root = 'https://hazards.fema.gov/gis/rest/services/NFHL/MapServer'
-
-# Should be (CORRECT):
-service_root = 'https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer'
-```
-
-### Fix Required
-- Change `/gis/` to `/arcgis/`
-- Add `/public/` to the path
-- The service has 32 layers available
-
-### References
-- [FEMA NFHL Viewer](https://www.arcgis.com/apps/webappviewer/index.html?id=8b0adb51996444d4879338b5529aa9cd)
-- [FEMA REST Services](https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer)
-- [FEMA Flood Data Portal](https://www.fema.gov/flood-maps/national-flood-hazard-layer)
+### Implementation
+- Script: `scripts/download_additional_data.py`
+- Method: SQL query against `SDM_Access_Service`
+- Coverage: Full bounding box of the rail corridor.
+- Attributes: Map Unit Key (mukey), Hydrologic Group.
 
 ---
+
+## 3. Social Vulnerability Index (SVI)
+
+**Status:** ❌ FAILED (404)
+**Source:** CDC / ATSDR
+
+### Issue
+The direct download URL for the 2020 SVI Shapefile (Washington) returned a 404 error.
+
+### Workaround
+Users must manually download the SVI data:
+1. Go to [CDC SVI Data](https://www.atsdr.cdc.gov/placeandhealth/svi/data_documentation_download.html)
+2. Select "2020", "Washington", "Census Tracts".
+3. Download Shapefile.
+4. Place in `data/raw/demographics/`.
+
+---
+
+## 4. Next Steps for Data Improvement
+
+1.  **Municipal Outreach**: Contact public works departments in Kent, Auburn, and Tacoma to replace OSM proxy data with official asset lists.
+2.  **SVI Integration**: Manually download SVI data to add equity analysis to the dashboard.
+3.  **Lidar/DEM**: Ensure high-resolution DEM covers the southern portion of the corridor (Tacoma/Fife) for better slope analysis.
 
 ## 2. USDA SSURGO Soils ✅
 

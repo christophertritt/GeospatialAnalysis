@@ -10,14 +10,14 @@ import numpy as np
 
 # Set page config
 st.set_page_config(
-    page_title="Rail Resilience Dashboard", 
+    page_title="Regional Rail Resilience Dashboard", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.title("🚄 Rail Corridor Resilience Dashboard")
+st.title("🚄 Regional Rail Resilience Dashboard")
 st.markdown("""
-**Comprehensive analysis of flood vulnerability and green infrastructure alignment.**
+**Comprehensive analysis of flood vulnerability and green infrastructure alignment across the Seattle-Tacoma corridor.**
 Use the tabs below to explore different dimensions of the analysis.
 """)
 
@@ -34,7 +34,13 @@ def load_data():
     for path in paths:
         if os.path.exists(path):
             try:
-                gdf = gpd.read_file(path)
+                # Try reading 'segments' layer first (contains full analysis)
+                try:
+                    gdf = gpd.read_file(path, layer='segments')
+                except ValueError:
+                    # Fallback to default layer if 'segments' not found
+                    gdf = gpd.read_file(path)
+
                 # Ensure CRS is WGS84 for Folium
                 if gdf.crs and gdf.crs.to_string() != 'EPSG:4326':
                     gdf = gdf.to_crs(epsg=4326)
@@ -64,6 +70,58 @@ basemap = st.sidebar.selectbox(
     options=["CartoDB positron", "OpenStreetMap", "CartoDB dark_matter"],
     index=0
 )
+
+# Context Layers
+st.sidebar.subheader("Context Layers")
+show_rail = st.sidebar.checkbox("Show Rail Network", value=False)
+show_infra = st.sidebar.checkbox("Show Infrastructure", value=False)
+show_flood = st.sidebar.checkbox("Show Flood Zones", value=False)
+show_soils = st.sidebar.checkbox("Show Soils", value=False)
+
+context_layers = {}
+
+@st.cache_data
+def load_layer(path):
+    if os.path.exists(path):
+        try:
+            gdf = gpd.read_file(path)
+            # Robust CRS check and conversion
+            if gdf.crs:
+                if gdf.crs.to_epsg() != 4326:
+                    gdf = gdf.to_crs(epsg=4326)
+            else:
+                st.warning(f"Layer {path} has no CRS. Assuming EPSG:4326 but alignment may be off.")
+            
+            return gdf
+        except Exception as e:
+            st.error(f"Error loading {path}: {e}")
+    return None
+
+if show_rail:
+    # Try GPKG first, then SHP
+    rail_path = 'data/raw/rail/osm_rail.gpkg' if os.path.exists('data/raw/rail/osm_rail.gpkg') else 'data/raw/rail/osm_rail.shp'
+    context_layers['Rail Network'] = load_layer(rail_path)
+
+if show_infra:
+    infra_path = 'data/processed/infrastructure_combined.gpkg' if os.path.exists('data/processed/infrastructure_combined.gpkg') else 'data/processed/infrastructure_combined.shp'
+    context_layers['Infrastructure'] = load_layer(infra_path)
+
+if show_flood:
+    flood_path = 'data/processed/flood/nfhl_aoi.gpkg' if os.path.exists('data/processed/flood/nfhl_aoi.gpkg') else 'data/processed/flood/nfhl_aoi.shp'
+    context_layers['Flood Zones'] = load_layer(flood_path)
+
+if show_soils:
+    soils_path = 'data/raw/soils/ssurgo_download.gpkg' if os.path.exists('data/raw/soils/ssurgo_download.gpkg') else 'data/raw/soils/ssurgo_download.shp'
+    context_layers['Soils'] = load_layer(soils_path)
+
+# Debug info for layers
+if context_layers:
+    with st.sidebar.expander("Layer Debug Info"):
+        for name, layer in context_layers.items():
+            if layer is not None:
+                st.write(f"✅ {name}: {len(layer)} features")
+            else:
+                st.write(f"❌ {name}: Failed to load")
 
 # Global Filters
 st.sidebar.subheader("Global Filters")
@@ -106,18 +164,24 @@ st.sidebar.download_button(
 )
 
 # --- Helper Functions ---
-def create_map(data, color_col, tooltip_cols, caption, cmap='viridis', categorical=False):
+def create_map(data, color_col, tooltip_cols, caption, cmap='viridis', categorical=False, context_layers=None):
+    # Calculate center of the data
+    bounds = data.total_bounds
+    center_lat = (bounds[1] + bounds[3]) / 2
+    center_lon = (bounds[0] + bounds[2]) / 2
+
     # OPTIMIZATION: prefer_canvas=True significantly speeds up rendering of many vector features
-    m = folium.Map(location=[47.6062, -122.3321], zoom_start=11, tiles=basemap, prefer_canvas=True)
+    m = folium.Map(location=[center_lat, center_lon], zoom_start=10, tiles=basemap, prefer_canvas=True)
     
     if categorical:
         # For categorical data (like Clusters), we need a custom color function or pre-mapped colors
         # Simple approach: Factorize or use specific colors
         pass 
     
+    # 1. Add Base Choropleth Layer (Bottom)
     folium.Choropleth(
         geo_data=data,
-        name='choropleth',
+        name='Analysis Segments',
         data=data,
         columns=['segment_id', color_col],
         key_on='feature.properties.segment_id',
@@ -127,18 +191,63 @@ def create_map(data, color_col, tooltip_cols, caption, cmap='viridis', categoric
         legend_name=caption
     ).add_to(m)
     
+    # 2. Add Tooltip Layer (Invisible, for interaction)
     # Filter tooltip columns to only those present in data
     valid_tooltip_cols = [c for c in tooltip_cols if c in data.columns]
     
     style_function = lambda x: {'fillColor': '#ffffff00', 'color': '#00000000'}
     folium.GeoJson(
         data,
+        name='Segment Tooltips',
         style_function=style_function,
         tooltip=folium.GeoJsonTooltip(
             fields=['segment_id'] + valid_tooltip_cols,
             localize=True
         )
     ).add_to(m)
+
+    # 3. Add Context Layers (Top)
+    if context_layers:
+        for name, layer_gdf in context_layers.items():
+            if layer_gdf is not None:
+                # Simplify geometry for performance
+                layer_simple = layer_gdf.copy()
+                if len(layer_simple) > 1000:
+                    layer_simple['geometry'] = layer_simple.geometry.simplify(tolerance=0.0001)
+                
+                # Determine style based on layer name
+                color = 'blue'
+                weight = 2
+                fill_opacity = 0.3
+                
+                if 'Rail' in name: 
+                    color = 'black'
+                    weight = 3
+                elif 'Infrastructure' in name: 
+                    color = '#00FF00' # Bright Green
+                    weight = 1
+                    fill_opacity = 0.8
+                    # For points, we might want CircleMarkers, but GeoJson handles them as default markers
+                    # Let's use a custom marker style for points if possible, or just rely on default
+                elif 'Flood' in name: 
+                    color = 'red'
+                    fill_opacity = 0.4
+                elif 'Soils' in name: 
+                    color = 'brown'
+                    fill_opacity = 0.4
+                
+                folium.GeoJson(
+                    layer_simple,
+                    name=name,
+                    style_function=lambda x, color=color, weight=weight, fill_opacity=fill_opacity: {
+                        'color': color, 
+                        'weight': weight, 
+                        'fillOpacity': fill_opacity
+                    },
+                    tooltip=folium.GeoJsonTooltip(fields=[c for c in layer_simple.columns if c != 'geometry'][:3])
+                ).add_to(m)
+    
+    folium.LayerControl().add_to(m)
     
     return m
 
@@ -164,19 +273,26 @@ with tab1:
             st.metric("Critical Gap Segments", f"{high_gap_count}", help="Segments with Gap Index > 5")
 
         st.markdown("### Visualization")
+        
+        # Define available metrics based on columns present
+        available_metrics = {
+            'vuln_mean': 'Flood Vulnerability',
+            'density_sqft_per_acre': 'Infrastructure Density',
+            'gap_index': 'Infrastructure Gap',
+            'imperv_mean': 'Imperviousness',
+            'slope_mean': 'Slope',
+            'svi_score': 'Social Vulnerability (SVI)',
+            'canopy_mean': 'Tree Canopy (%)',
+            'in_flood_zone': 'In Flood Zone (Binary)'
+        }
+        
+        # Filter to only columns that exist
+        options = [k for k in available_metrics.keys() if k in filtered_gdf.columns]
+        
         map_metric = st.selectbox(
             "Map Layer",
-            options=['vuln_mean', 'density_sqft_per_acre', 'gap_index', 'imperv_mean', 'slope_mean', 'svi_score', 'canopy_mean', 'in_flood_zone'],
-            format_func=lambda x: {
-                'vuln_mean': 'Flood Vulnerability',
-                'density_sqft_per_acre': 'Infrastructure Density',
-                'gap_index': 'Infrastructure Gap',
-                'imperv_mean': 'Imperviousness',
-                'slope_mean': 'Slope',
-                'svi_score': 'Social Vulnerability (SVI)',
-                'canopy_mean': 'Tree Canopy (%)',
-                'in_flood_zone': 'In Flood Zone (Binary)'
-            }.get(x, x)
+            options=options,
+            format_func=lambda x: available_metrics.get(x, x)
         )
 
     with col1:
@@ -196,7 +312,8 @@ with tab1:
                 map_metric, 
                 ['vuln_mean', 'density_sqft_per_acre', 'gap_index', 'svi_score', 'canopy_mean'], 
                 map_metric, 
-                cmap
+                cmap,
+                context_layers=context_layers
             )
             st_folium(m_overview, width=None, height=500)
         else:
