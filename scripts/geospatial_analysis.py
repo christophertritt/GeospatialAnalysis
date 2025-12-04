@@ -12,6 +12,13 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import json
+import logging
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 # Support both direct execution and package import
 try:
@@ -64,7 +71,7 @@ TARGET_CRS = 2927
 class GeospatialAnalysisTool:
     """Main analysis tool for rail corridor geospatial analysis"""
     
-    def __init__(self, data_dir='data', output_dir='data/outputs'):
+    def __init__(self, data_dir='data', output_dir='data/outputs', config_path=None):
         """
         Initialize the analysis tool
         
@@ -76,11 +83,19 @@ class GeospatialAnalysisTool:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
-        # Standard CRS: Washington State Plane South NAD83(2011) EPSG:2927
-        self.target_crs = TARGET_CRS
+        # Load config if provided
+        self.config = {}
+        if config_path and Path(config_path).exists() and yaml:
+            with open(config_path, 'r') as f:
+                self.config = yaml.safe_load(f) or {}
+        elif config_path and not yaml:
+            print("Warning: pyyaml not installed; ignoring config file.")
+
+        # Standard CRS
+        self.target_crs = int(self.config.get('crs', TARGET_CRS))
         
-        # Buffer distances in meters
-        self.buffer_distances = [100, 250, 500]
+        # Buffer distances
+        self.buffer_distances = list(self.config.get('buffers_m', [100, 250, 500]))
         
         # Analysis results storage
         self.segments = None
@@ -90,92 +105,132 @@ class GeospatialAnalysisTool:
     def load_data(self, rail_path=None, infrastructure_path=None):
         """
         Load and validate spatial data
-        
+
         Args:
-            rail_path: Path to rail corridor shapefile
-            infrastructure_path: Path to infrastructure shapefile
+            rail_path: Path to rail corridor shapefile (REQUIRED)
+            infrastructure_path: Path to infrastructure shapefile (REQUIRED)
+
+        Raises:
+            ValueError: If required data files are not provided
         """
         print("\n" + "="*70)
         print("PHASE 1: DATA LOADING AND VALIDATION")
         print("="*70)
-        
-        # Load rail data
-        if rail_path and os.path.exists(rail_path):
-            print(f"\nLoading rail data from: {rail_path}")
-            rail = gpd.read_file(rail_path)
-            rail = validate_spatial_data(rail, "Rail Corridor")
-            rail = reproject_to_standard(rail, self.target_crs)
-            
-            # Create buffers
-            print("\nCreating corridor buffers...")
-            buffers = create_buffers(rail, self.buffer_distances)
-            
-            # Use 250m buffer as default analysis unit
-            self.segments = buffers['250m'].copy()
-            self.segments['segment_id'] = range(1, len(self.segments) + 1)
-            
-            print(f"Created analysis segments: {len(self.segments)}")
-        else:
-            print("Warning: No rail data provided. Using sample geometry.")
-            # Create sample geometry for demonstration
-            self.create_sample_data()
-        
-        # Load infrastructure data
-        if infrastructure_path and os.path.exists(infrastructure_path):
-            print(f"\nLoading infrastructure data from: {infrastructure_path}")
-            infra = gpd.read_file(infrastructure_path)
-            infra = validate_spatial_data(infra, "Infrastructure")
-            self.infrastructure = reproject_to_standard(infra, self.target_crs)
-        else:
-            print("Warning: No infrastructure data provided.")
-            self.infrastructure = None
-    
-    def create_sample_data(self):
-        """Create sample data for demonstration"""
-        print("\nCreating sample corridor segment...")
-        # Create a simple line and buffer it
-        from shapely.geometry import LineString
-        
-        # Sample line (in WA State Plane South coordinates)
-        line = LineString([
-            (1200000, 200000),
-            (1200000, 210000),
-            (1205000, 210000)
-        ])
-        
-        gdf = gpd.GeoDataFrame({'geometry': [line]}, crs=f'EPSG:{self.target_crs}')
-        buffers = create_buffers(gdf, self.buffer_distances)
-        
+
+        # Load rail data - REQUIRED
+        if not rail_path or not os.path.exists(rail_path):
+            raise ValueError(
+                f"Rail corridor data is required. Provided path: {rail_path}\n"
+                "Please provide a valid rail corridor shapefile.\n"
+                "You can obtain this from:\n"
+                "  - WSDOT GeoData Portal: https://gisdata-wsdot.opendata.arcgis.com/\n"
+                "  - Local transit agencies\n"
+                "  - OpenStreetMap (railway=rail)"
+            )
+
+        print(f"\nLoading rail data from: {rail_path}")
+        rail = gpd.read_file(rail_path)
+        rail = validate_spatial_data(rail, "Rail Corridor")
+        rail = reproject_to_standard(rail, self.target_crs)
+
+        # Create buffers
+        print("\nCreating corridor buffers...")
+        buffers = create_buffers(rail, self.buffer_distances)
+
+        # Use 250m buffer as default analysis unit
         self.segments = buffers['250m'].copy()
         self.segments['segment_id'] = range(1, len(self.segments) + 1)
+
+        print(f"Created analysis segments: {len(self.segments)}")
+
+        # Load infrastructure data - REQUIRED
+        if not infrastructure_path or not os.path.exists(infrastructure_path):
+            raise ValueError(
+                f"Infrastructure data is required. Provided path: {infrastructure_path}\n"
+                "Please provide a valid infrastructure shapefile.\n"
+                "You can obtain this from:\n"
+                "  - Seattle Open Data: https://data.seattle.gov/\n"
+                "  - Local stormwater/public works departments\n"
+                "  - Manual mapping of green infrastructure facilities"
+            )
+
+        print(f"\nLoading infrastructure data from: {infrastructure_path}")
+        infra = gpd.read_file(infrastructure_path)
+        infra = validate_spatial_data(infra, "Infrastructure")
+        self.infrastructure = reproject_to_standard(infra, self.target_crs)
     
-    def calculate_vulnerability(self, imperviousness=None, slope=None, soil_type='C'):
+    
+    def calculate_vulnerability(self, imperviousness_raster=None, dem_path=None, soils_path=None):
         """
-        Calculate vulnerability index for segments
-        
+        Calculate vulnerability index for segments from real data sources
+
         Args:
-            imperviousness: Array or dict of imperviousness percentages by segment
-            slope: Array or dict of slope percentages by segment
-            soil_type: Dominant soil type ('A', 'B', 'C', 'D')
+            imperviousness_raster: Path to NLCD imperviousness raster
+            dem_path: Path to DEM/elevation raster for slope calculation
+            soils_path: Path to SSURGO soils shapefile
+
+        Note: If raster data is not provided, vulnerability cannot be calculated.
+              Use data_acquisition.py to fetch required datasets.
         """
         print("\n" + "="*70)
         print("PHASE 2: VULNERABILITY INDEX CALCULATION")
         print("="*70)
-        
+
         if self.segments is None:
-            print("Error: No segments loaded. Run load_data() first.")
-            return
-        
-        # For demonstration, create synthetic vulnerability scores
+            raise ValueError("No segments loaded. Run load_data() first.")
+
         n_segments = len(self.segments)
-        
-        # Sample imperviousness if not provided
-        if imperviousness is None:
-            imperviousness = np.random.uniform(30, 85, n_segments)
-        
-        # Sample slope if not provided
-        if slope is None:
-            slope = np.random.uniform(0.5, 8, n_segments)
+
+        # Extract imperviousness from NLCD raster
+        if imperviousness_raster and os.path.exists(imperviousness_raster):
+            print(f"\nExtracting imperviousness from: {imperviousness_raster}")
+            try:
+                from rasterstats import zonal_stats
+                stats = zonal_stats(
+                    self.segments,
+                    imperviousness_raster,
+                    stats=['mean', 'median'],
+                    nodata=-9999
+                )
+                imperviousness = np.array([s['mean'] if s['mean'] is not None else 0 for s in stats])
+                print(f"  Extracted imperviousness for {n_segments} segments")
+            except Exception as e:
+                raise ValueError(f"Failed to extract imperviousness: {e}\n"
+                               "Install rasterstats: pip install rasterstats")
+        else:
+            raise ValueError(
+                "Imperviousness raster is required for vulnerability calculation.\n"
+                f"Provided path: {imperviousness_raster}\n"
+                "Download NLCD imperviousness from: https://www.mrlc.gov/viewer/\n"
+                "Place file in: data/raw/landcover/"
+            )
+
+        # Extract slope from DEM
+        if dem_path and os.path.exists(dem_path):
+            print(f"\nExtracting slope from DEM: {dem_path}")
+            try:
+                import rasterio
+                from rasterstats import zonal_stats
+
+                # Calculate slope from DEM (would need richdem or gdal)
+                # For now, extract elevation and approximate slope
+                stats = zonal_stats(
+                    self.segments,
+                    dem_path,
+                    stats=['mean', 'std'],
+                    nodata=-9999
+                )
+                # Approximate slope from elevation std dev
+                slope = np.array([s['std']/10 if s['std'] is not None else 2.0 for s in stats])
+                print(f"  Extracted slope approximation for {n_segments} segments")
+            except Exception as e:
+                print(f"  Warning: Failed to extract slope: {e}")
+                print("  Using default slope values")
+                slope = np.full(n_segments, 2.0)  # Default moderate slope
+        else:
+            print("\nWarning: No DEM provided. Using default slope values.")
+            print("Download elevation data from: https://apps.nationalmap.gov/")
+            slope = np.full(n_segments, 2.0)  # Default moderate slope
         
         # Calculate component scores (0-2 scale)
         # Imperviousness: >75% = 2, 60-75% = 1.5, 45-60% = 1, <45% = 0
@@ -188,27 +243,49 @@ class GeospatialAnalysisTool:
                              np.where(slope < 5, 1.5,
                                      np.where(slope < 10, 1.0, 0.0)))
         
-        # Soil: D=2, C=1.5, B=1, A=0
+        # Process soils data
+        if soils_path and os.path.exists(soils_path):
+            print(f"\nProcessing soils data from: {soils_path}")
+            try:
+                soils = gpd.read_file(soils_path)
+                # Spatial join to get dominant soil type per segment
+                joined = gpd.sjoin(self.segments, soils, how='left', predicate='intersects')
+                # Extract hydrologic group (assuming column name 'hydgrpdcd' or 'HYDGRP')
+                hydgrp_col = 'hydgrpdcd' if 'hydgrpdcd' in joined.columns else 'HYDGRP' if 'HYDGRP' in joined.columns else None
+                if hydgrp_col:
+                    # Get most common soil type per segment
+                    soil_by_segment = joined.groupby('segment_id')[hydgrp_col].agg(lambda x: x.mode()[0] if len(x) > 0 else 'C')
+                    print(f"  Processed soil data for {len(soil_by_segment)} segments")
+                else:
+                    print("  Warning: Could not find soil hydrologic group column. Using default 'C'")
+                    soil_by_segment = pd.Series(['C'] * n_segments, index=range(1, n_segments+1))
+            except Exception as e:
+                print(f"  Warning: Failed to process soils: {e}")
+                print("  Using default soil type 'C'")
+                soil_by_segment = pd.Series(['C'] * n_segments, index=range(1, n_segments+1))
+        else:
+            print("\nWarning: No soils data provided. Using default soil type 'C'")
+            print("Download soils data using: python scripts/data_acquisition.py")
+            soil_by_segment = pd.Series(['C'] * n_segments, index=range(1, n_segments+1))
+
+        # Soil vulnerability scores: D=2, C=1.5, B=1, A=0
         soil_scores = {'D': 2.0, 'C': 1.5, 'B': 1.0, 'A': 0.0}
-        soil_vuln = soil_scores.get(soil_type, 1.5)
-        
+        soil_vuln = np.array([soil_scores.get(str(s).upper()[0] if str(s) else 'C', 1.5)
+                             for s in soil_by_segment])
+
         # Composite vulnerability (weighted average of components)
-        # For simplicity, using equal weights here
         weights = {
-            'imperv': 0.35,
-            'slope': 0.25,
-            'soil': 0.20,
-            'topo': 0.20  # Placeholder
+            'imperv': 0.40,
+            'slope': 0.30,
+            'soil': 0.30
         }
-        
-        # Topographic vulnerability (placeholder - would come from DEM)
-        topo_vuln = np.random.uniform(0.5, 2.0, n_segments)
+
+        # No random/synthetic data - use actual extracted values
         
         vuln_composite = (
             weights['imperv'] * imperv_vuln +
             weights['slope'] * slope_vuln +
-            weights['soil'] * soil_vuln +
-            weights['topo'] * topo_vuln
+            weights['soil'] * soil_vuln
         )
         
         # Normalize to 0-10 scale
@@ -229,30 +306,14 @@ class GeospatialAnalysisTool:
         print("\n" + "="*70)
         print("PHASE 3: INFRASTRUCTURE DENSITY ANALYSIS")
         print("="*70)
-        
+
         if self.segments is None:
-            print("Error: No segments loaded.")
-            return
-        
+            raise ValueError("No segments loaded. Run load_data() first.")
+
         if self.infrastructure is None:
-            print("Warning: No infrastructure data available. Creating sample data.")
-            # Create sample infrastructure points
-            n_points = 50
-            bounds = self.segments.total_bounds
-            
-            x = np.random.uniform(bounds[0], bounds[2], n_points)
-            y = np.random.uniform(bounds[1], bounds[3], n_points)
-            
-            from shapely.geometry import Point
-            points = [Point(xi, yi) for xi, yi in zip(x, y)]
-            
-            self.infrastructure = gpd.GeoDataFrame(
-                {
-                    'FacilityID': range(1, n_points + 1),
-                    'AreaSqFt': np.random.uniform(500, 5000, n_points)
-                },
-                geometry=points,
-                crs=f'EPSG:{self.target_crs}'
+            raise ValueError(
+                "Infrastructure data is required for density analysis.\n"
+                "Infrastructure data should have been loaded in load_data()."
             )
         
         # Calculate density
@@ -403,6 +464,19 @@ class GeospatialAnalysisTool:
                         f.write(f"High gap segments (>5): {(self.segments['gap_index'] > 5).sum()}\n")
         
         print(f"\nReport saved to: {output_file}")
+        # Also emit a JSON summary
+        summary_json = self.output_dir / 'analysis_summary.json'
+        try:
+            summary = {
+                'n_segments': int(len(self.segments)) if self.segments is not None else 0,
+                'crs': f"EPSG:{self.target_crs}",
+                'results': self.results,
+            }
+            with open(summary_json, 'w') as jf:
+                json.dump(summary, jf, indent=2)
+            print(f"JSON summary saved to: {summary_json}")
+        except Exception as e:
+            print(f"Warning: Failed to write JSON summary ({e}).")
     
     def save_results(self):
         """Save analysis results to files"""
@@ -411,10 +485,21 @@ class GeospatialAnalysisTool:
         print("="*70)
         
         if self.segments is not None:
-            # Save segments shapefile
-            output_path = self.output_dir / 'analysis_segments.shp'
-            self.segments.to_file(output_path)
-            print(f"Segments saved to: {output_path}")
+            # Save segments to GeoPackage (preferred)
+            fmt = (self.config.get('output', {}) or {}).get('format', 'gpkg')
+            gpkg_path = self.output_dir / 'analysis_segments.gpkg'
+            try:
+                if fmt == 'gpkg':
+                    layer = (self.config.get('output', {}) or {}).get('segments_layer', 'segments')
+                    self.segments.to_file(gpkg_path, driver='GPKG', layer=layer)
+                else:
+                    raise Exception('Non-GPKG requested')
+                print(f"Segments saved to: {gpkg_path}")
+            except Exception as e:
+                print(f"Warning: Failed to write GeoPackage ({e}). Writing Shapefile instead.")
+                shp_path = self.output_dir / 'analysis_segments.shp'
+                self.segments.to_file(shp_path)
+                print(f"Segments saved to: {shp_path}")
             
             # Save CSV summary
             csv_path = self.output_dir / 'analysis_segments.csv'
@@ -425,25 +510,73 @@ class GeospatialAnalysisTool:
         
         # Save infrastructure if available
         if self.infrastructure is not None:
-            infra_path = self.output_dir / 'infrastructure_processed.shp'
-            self.infrastructure.to_file(infra_path)
-            print(f"Infrastructure saved to: {infra_path}")
+            infra_gpkg = self.output_dir / 'infrastructure_processed.gpkg'
+            try:
+                if fmt == 'gpkg':
+                    layer = (self.config.get('output', {}) or {}).get('infrastructure_layer', 'infrastructure')
+                    self.infrastructure.to_file(infra_gpkg, driver='GPKG', layer=layer)
+                else:
+                    raise Exception('Non-GPKG requested')
+                print(f"Infrastructure saved to: {infra_gpkg}")
+            except Exception as e:
+                print(f"Warning: Failed to write GeoPackage ({e}). Writing Shapefile instead.")
+                infra_shp = self.output_dir / 'infrastructure_processed.shp'
+                self.infrastructure.to_file(infra_shp)
+                print(f"Infrastructure saved to: {infra_shp}")
 
 
 def main():
     """Main entry point for CLI"""
     parser = argparse.ArgumentParser(
-        description='Geospatial analysis tool for rail corridor flood vulnerability assessment'
+        description='Geospatial analysis tool for rail corridor flood vulnerability assessment',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Required Data Files:
+  All data files must be downloaded before running analysis.
+  Use download_data.py to fetch external datasets.
+
+  Required:
+    - Rail corridor shapefile (--rail)
+    - Infrastructure/permeable pavement shapefile (--infrastructure)
+    - NLCD imperviousness raster (--imperviousness)
+
+  Optional but recommended:
+    - Digital Elevation Model (--dem)
+    - SSURGO soils shapefile (--soils)
+
+Example Usage:
+  python scripts/geospatial_analysis.py \\
+    --rail data/raw/rail/corridor.shp \\
+    --infrastructure data/raw/infrastructure/permeable_pavement.shp \\
+    --imperviousness data/raw/landcover/nlcd_2019_impervious_aoi.tif \\
+    --dem data/raw/elevation/dem_aoi.tif \\
+    --soils data/processed/soils/ssurgo_aoi.gpkg \\
+    --config config.yaml \\
+    --verbose
+        """
     )
     parser.add_argument(
         '--rail',
-        help='Path to rail corridor shapefile',
-        default=None
+        required=True,
+        help='Path to rail corridor shapefile (REQUIRED)'
     )
     parser.add_argument(
         '--infrastructure',
-        help='Path to infrastructure shapefile',
-        default=None
+        required=True,
+        help='Path to infrastructure shapefile (REQUIRED)'
+    )
+    parser.add_argument(
+        '--imperviousness',
+        required=True,
+        help='Path to NLCD imperviousness raster (REQUIRED)'
+    )
+    parser.add_argument(
+        '--dem',
+        help='Path to Digital Elevation Model raster (optional)'
+    )
+    parser.add_argument(
+        '--soils',
+        help='Path to SSURGO soils shapefile (optional)'
     )
     parser.add_argument(
         '--data-dir',
@@ -455,56 +588,115 @@ def main():
         help='Output directory',
         default='data/outputs'
     )
-    
-    args = parser.parse_args()
-    
-    # Initialize tool
-    tool = GeospatialAnalysisTool(
-        data_dir=args.data_dir,
-        output_dir=args.output_dir
+    parser.add_argument(
+        '--config',
+        help='Path to YAML configuration file',
+        default='config.yaml'
     )
-    
-    # Run analysis pipeline
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Enable verbose logging'
+    )
+
+    args = parser.parse_args()
+
+    # Setup logging
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format='[%(levelname)s] %(message)s'
+    )
+
+    # Validate required files exist
+    required_files = {
+        'Rail corridor': args.rail,
+        'Infrastructure': args.infrastructure,
+        'Imperviousness': args.imperviousness
+    }
+
     print("\n" + "="*70)
     print("GEOSPATIAL ANALYSIS TOOL")
     print("Rail Corridor Flood Vulnerability and Infrastructure Assessment")
     print("="*70)
-    
-    # Phase 1: Load data
-    tool.load_data(rail_path=args.rail, infrastructure_path=args.infrastructure)
-    
-    # Phase 2: Calculate vulnerability
-    tool.calculate_vulnerability()
-    
-    # Phase 3: Analyze infrastructure density
-    tool.analyze_infrastructure_density()
-    
-    # Phase 4: Assess alignment
-    tool.assess_alignment()
-    
-    # Phase 5: Spatial clustering (if available)
-    if SPATIAL_CLUSTERING_AVAILABLE and 'gap_index' in tool.segments.columns:
-        clustering_results, tool.segments = perform_spatial_clustering_analysis(
-            tool.segments, 
-            variable_col='gap_index'
+
+    print("\nValidating required data files...")
+    missing_files = []
+    for name, path in required_files.items():
+        if not os.path.exists(path):
+            print(f"  ❌ {name}: {path} (NOT FOUND)")
+            missing_files.append(name)
+        else:
+            print(f"  ✅ {name}: {path}")
+
+    if missing_files:
+        print("\n❌ ERROR: Missing required data files:")
+        for name in missing_files:
+            print(f"  - {name}")
+        print("\nPlease download required data using:")
+        print("  python download_data.py --bbox \"minx,miny,maxx,maxy\"")
+        print("\nOr see DATA_SOURCES_STATUS.md for manual download instructions.")
+        sys.exit(1)
+
+    # Initialize tool
+    tool = GeospatialAnalysisTool(
+        data_dir=args.data_dir,
+        output_dir=args.output_dir,
+        config_path=args.config
+    )
+
+    try:
+        # Phase 1: Load data
+        tool.load_data(rail_path=args.rail, infrastructure_path=args.infrastructure)
+
+        # Phase 2: Calculate vulnerability
+        tool.calculate_vulnerability(
+            imperviousness_raster=args.imperviousness,
+            dem_path=args.dem,
+            soils_path=args.soils
         )
-        if clustering_results:
-            tool.results['spatial_clustering'] = clustering_results
-    
-    # Phase 6: Runoff modeling (if available)
-    if RUNOFF_MODELING_AVAILABLE:
-        tool.segments = perform_runoff_modeling(tool.segments)
-    
-    # Generate report
-    tool.generate_report()
-    
-    # Save results
-    tool.save_results()
-    
-    print("\n" + "="*70)
-    print("ANALYSIS COMPLETE")
-    print("="*70)
-    print(f"\nResults saved to: {tool.output_dir}")
+
+        # Phase 3: Analyze infrastructure density
+        tool.analyze_infrastructure_density()
+
+        # Phase 4: Assess alignment
+        tool.assess_alignment()
+
+        # Phase 5: Spatial clustering (if available)
+        if SPATIAL_CLUSTERING_AVAILABLE and 'gap_index' in tool.segments.columns:
+            clustering_results, tool.segments = perform_spatial_clustering_analysis(
+                tool.segments,
+                variable_col='gap_index'
+            )
+            if clustering_results:
+                tool.results['spatial_clustering'] = clustering_results
+
+        # Phase 6: Runoff modeling (if available)
+        if RUNOFF_MODELING_AVAILABLE:
+            tool.segments = perform_runoff_modeling(tool.segments)
+
+        # Generate report
+        tool.generate_report()
+
+        # Save results
+        tool.save_results()
+
+        print("\n" + "="*70)
+        print("✅ ANALYSIS COMPLETE")
+        print("="*70)
+        print(f"\nResults saved to: {tool.output_dir}")
+        print("\nOutput files:")
+        print("  - analysis_segments.gpkg (or .shp)")
+        print("  - analysis_segments.csv")
+        print("  - analysis_summary.txt")
+        print("  - analysis_summary.json")
+
+    except ValueError as e:
+        print(f"\n❌ ERROR: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}", exc_info=args.verbose)
+        print(f"\n❌ ANALYSIS FAILED: {e}")
+        sys.exit(1)
 
 
 if __name__ == '__main__':

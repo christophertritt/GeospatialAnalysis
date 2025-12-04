@@ -1,0 +1,52 @@
+{
+  "study_area": {
+    "corridor_length_miles": 541.26,
+    "analysis_segments": 2319,
+    "total_area_acres": 112277.4623621392,
+    "bbox": [
+      1143079.15757525,
+      682491.0653110538,
+      1215194.6033462852,
+      852780.8597207428
+    ]
+  },
+  "vulnerability": {
+    "mean_score": 8.420098724518876,
+    "median_score": 8.973358116480792,
+    "high_vulnerability_segments": 2099,
+    "high_vulnerability_area_acres": 101625.87041747743,
+    "percent_high_vulnerability": 90.51315222078482,
+    "mean_imperviousness_percent": 84.20098724518877
+  },
+  "infrastructure": {
+    "total_facilities": 13208,
+    "segments_with_infrastructure": 481,
+    "percent_coverage": 20.741699008193187,
+    "total_infrastructure_area_sqft": 7367039.585967239,
+    "mean_density_sqft_per_acre": 65.6145893483558,
+    "max_density_sqft_per_acre": 2685.497378182793
+  },
+  "alignment": {
+    "quadrant_distribution": {
+      "Q1_High_Vuln_High_Infrastructure": 135,
+      "Q2_High_Vuln_Low_Infrastructure_GAP": 1025,
+      "Q3_Low_Vuln_High_Infrastructure": 106,
+      "Q4_Low_Vuln_Low_Infrastructure": 1053
+    },
+    "gap_area_acres": 49626.73519671957,
+    "gap_percent_of_corridor": 44.20008624407072,
+    "well_aligned_area_acres": 6536.204147860624,
+    "well_aligned_percent": 5.821474773609314
+  },
+  "analysis_metadata": {
+    "date": "2025-12-03T20:17:07.826133",
+    "data_sources": [
+      "OpenStreetMap (Rail Corridors)",
+      "Seattle Public Utilities (Green Infrastructure)",
+      "MRLC NLCD 2021 (Imperviousness)",
+      "USGS 3DEP (Elevation)",
+      "FEMA NFHL (Flood Zones)",
+      "NOAA Atlas 14 (Precipitation)"
+    ]
+  }
+}

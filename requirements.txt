@@ -16,7 +16,7 @@ statsmodels>=0.14.0
 # Spatial statistics
 pysal>=2.7.0
 esda>=2.5.0
-libpysal>=4.9.0
+libpysal==4.8.1
 splot>=1.1.0
 
 # Raster statistics
@@ -29,3 +29,4 @@ contextily>=1.4.0
 
 # Other utilities
 click>=8.1.0
+pyyaml>=6.0

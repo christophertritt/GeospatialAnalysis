@@ -61,30 +61,33 @@ pip install -r requirements.txt
 
 ### Command Line Interface
 
-Run the complete analysis pipeline:
+Run the complete analysis pipeline with required data:
 
 ```bash
 python scripts/geospatial_analysis.py \
-    --rail data/raw/rail/rail_corridor.shp \
+    --rail data/raw/rail/corridor.shp \
     --infrastructure data/raw/infrastructure/permeable_pavement.shp \
-    --data-dir data \
-    --output-dir data/outputs
+    --imperviousness data/raw/landcover/nlcd_2019_impervious_aoi.tif \
+    --dem data/raw/elevation/dem_aoi.tif \
+    --soils data/processed/soils/ssurgo_aoi.gpkg \
+    --config config.yaml \
+    --verbose
 ```
 
-### Running with Sample Data
+**All three required parameters (rail, infrastructure, imperviousness) must be provided.**
 
-The tool can generate sample data for demonstration:
+### Data Requirements
+
+⚠️ **All analyses now require real data from external sources. No sample/synthetic data is generated.**
+
+Before running analysis, download required datasets:
 
 ```bash
-python scripts/geospatial_analysis.py
+# Download external data
+python download_data.py --bbox "-122.36,47.58,-122.30,47.62"
 ```
 
-This will:
-1. Create a sample corridor segment
-2. Generate synthetic vulnerability scores
-3. Place random infrastructure points
-4. Perform complete analysis
-5. Generate reports and save outputs
+See [DATA_ACQUISITION_WORKFLOW.md](DATA_ACQUISITION_WORKFLOW.md) for complete instructions.
 
 ### Python API
 
@@ -94,16 +97,25 @@ Use the tool programmatically:
 from scripts.geospatial_analysis import GeospatialAnalysisTool
 
 # Initialize
-tool = GeospatialAnalysisTool(data_dir='data', output_dir='data/outputs')
-
-# Load data
-tool.load_data(
-    rail_path='data/raw/rail/corridor.shp',
-    infrastructure_path='data/raw/infrastructure/permeable.shp'
+tool = GeospatialAnalysisTool(
+    data_dir='data',
+    output_dir='data/outputs',
+    config_path='config.yaml'
 )
 
-# Run analyses
-tool.calculate_vulnerability()
+# Load data (required)
+tool.load_data(
+    rail_path='data/raw/rail/corridor.shp',
+    infrastructure_path='data/raw/infrastructure/permeable_pavement.shp'
+)
+
+# Run analyses with real data
+tool.calculate_vulnerability(
+    imperviousness_raster='data/raw/landcover/nlcd_2019_impervious_aoi.tif',
+    dem_path='data/raw/elevation/dem_aoi.tif',
+    soils_path='data/processed/soils/ssurgo_aoi.gpkg'
+)
+
 tool.analyze_infrastructure_density()
 tool.assess_alignment()
 
@@ -111,6 +123,36 @@ tool.assess_alignment()
 tool.generate_report()
 tool.save_results()
 ```
+
+## Data Acquisition
+
+### Automated Download Script
+
+Use `download_data.py` to fetch external datasets for your area of interest:
+
+```bash
+python download_data.py --bbox "-122.36,47.58,-122.30,47.62" --verbose
+```
+
+This script will:
+- ✅ **Automatically download:** FEMA flood zones, SSURGO soils metadata
+- ⚠️ **Provide instructions for:** NLCD imperviousness, elevation/DEM, rail corridors, infrastructure
+
+### Data Sources
+
+**Automated (via API):**
+- `fetch_fema_nfhl_by_bbox(bbox)`: FEMA NFHL flood zones (✅ working)
+- `fetch_ssurgo_soils_by_bbox(bbox)`: USDA SSURGO soils (⚠️ may need manual processing)
+
+**Manual Download Required:**
+- NLCD imperviousness: https://www.mrlc.gov/viewer/
+- Elevation/DEM: https://apps.nationalmap.gov/downloader/
+- Rail corridors: WSDOT Portal, OSM, or local agencies
+- Infrastructure: Seattle Open Data or local jurisdiction
+
+**See [DATA_ACQUISITION_WORKFLOW.md](DATA_ACQUISITION_WORKFLOW.md) for complete instructions.**
+
+Outputs are cached to `data/raw/` and processed data saved to `data/processed/` as GeoPackages reprojected to Washington State Plane South (EPSG:2927).
 
 ## Project Structure
 

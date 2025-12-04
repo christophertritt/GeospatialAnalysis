@@ -22,9 +22,29 @@ def calculate_morans_i(segments, variable_col):
         from libpysal.weights import Queen
         from esda.moran import Moran
         
+        # Guard: require at least 3 segments
+        if len(segments) < 3:
+            print("Warning: Not enough segments for Moran's I (need >=3). Skipping.")
+            return None
+
         # Create spatial weights matrix
         w = Queen.from_dataframe(segments)
         w.transform = 'r'
+
+        # Guard: handle islands (no neighbors) with KNN fallback
+        try:
+            islands = getattr(w, 'islands', [])
+        except Exception:
+            islands = []
+        if islands:
+            print(f"Warning: {len(islands)} island(s) detected. Using KNN(k=4) fallback for Moran's I.")
+            try:
+                from libpysal.weights import KNN
+                w = KNN.from_dataframe(segments, k=4)
+                w.transform = 'r'
+            except Exception as ke:
+                print(f"Warning: KNN fallback failed ({ke}). Skipping Moran's I.")
+                return None
         
         # Extract variable
         data = segments[variable_col].values
@@ -75,9 +95,29 @@ def calculate_local_morans(segments, variable_col):
         from libpysal.weights import Queen
         from esda.moran import Moran_Local
         
+        # Guard: require at least 3 segments
+        if len(segments) < 3:
+            print("Warning: Not enough segments for LISA (need >=3). Skipping.")
+            return segments
+
         # Create spatial weights matrix
         w = Queen.from_dataframe(segments)
         w.transform = 'r'
+
+        # Handle islands with KNN fallback
+        try:
+            islands = getattr(w, 'islands', [])
+        except Exception:
+            islands = []
+        if islands:
+            print(f"Warning: {len(islands)} island(s) detected. Using KNN(k=4) fallback for LISA.")
+            try:
+                from libpysal.weights import KNN
+                w = KNN.from_dataframe(segments, k=4)
+                w.transform = 'r'
+            except Exception as ke:
+                print(f"Warning: KNN fallback failed ({ke}). Skipping LISA.")
+                return segments
         
         # Extract variable
         data = segments[variable_col].values
@@ -138,6 +178,11 @@ def calculate_hot_spots(segments, variable_col, distance_threshold=15840):
         from libpysal.weights import DistanceBand
         from esda.getisord import G_Local
         
+        # Guard: require at least 3 segments
+        if len(segments) < 3:
+            print("Warning: Not enough segments for Gi* (need >=3). Skipping.")
+            return segments
+
         # Create distance-based weights
         w_dist = DistanceBand.from_dataframe(
             segments, 
@@ -145,6 +190,21 @@ def calculate_hot_spots(segments, variable_col, distance_threshold=15840):
             binary=False
         )
         w_dist.transform = 'r'
+
+        # Handle islands with KNN fallback
+        try:
+            islands = getattr(w_dist, 'islands', [])
+        except Exception:
+            islands = []
+        if islands:
+            print(f"Warning: {len(islands)} island(s) detected. Using KNN(k=6) fallback for Gi*.")
+            try:
+                from libpysal.weights import KNN
+                w_dist = KNN.from_dataframe(segments, k=6)
+                w_dist.transform = 'r'
+            except Exception as ke:
+                print(f"Warning: KNN fallback failed ({ke}). Skipping Gi*.")
+                return segments
         
         # Extract variable
         data = segments[variable_col].values

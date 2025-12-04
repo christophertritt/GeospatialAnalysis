@@ -1,0 +1,23 @@
+# GeospatialAnalysis default configuration
+crs: 2927  # EPSG code
+buffers_m:
+  - 100
+  - 250
+  - 500
+clustering:
+  gi_distance_ft: 15840  # 3 miles
+  knn_k_morans: 4
+  knn_k_lisa: 4
+  knn_k_gi: 6
+runoff:
+  storms_years:
+    - 2
+    - 10
+    - 25
+output:
+  format: gpkg  # gpkg|shp
+  segments_layer: segments
+  infrastructure_layer: infrastructure
+demo:
+  seed: 42
+  points: 50
