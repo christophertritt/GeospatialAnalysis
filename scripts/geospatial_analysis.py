@@ -13,34 +13,46 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-# Add utils to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'utils'))
-
-from utils import (
-    validate_spatial_data,
-    reproject_to_standard,
-    create_buffers,
-    calculate_infrastructure_density,
-    correlation_analysis,
-    classify_vulnerability,
-    assign_quadrant,
-    calculate_gap_index
-)
-
-# Import analysis modules
+# Support both direct execution and package import
 try:
-    from spatial_clustering import perform_spatial_clustering_analysis
+    from .utils import (
+        validate_spatial_data,
+        reproject_to_standard,
+        create_buffers,
+        calculate_infrastructure_density,
+        correlation_analysis,
+        classify_vulnerability,
+        assign_quadrant,
+        calculate_gap_index
+    )
+    from .spatial_clustering import perform_spatial_clustering_analysis
+    from .runoff_modeling import perform_runoff_modeling
     SPATIAL_CLUSTERING_AVAILABLE = True
-except ImportError:
-    SPATIAL_CLUSTERING_AVAILABLE = False
-    print("Warning: spatial_clustering module not available")
-
-try:
-    from runoff_modeling import perform_runoff_modeling
     RUNOFF_MODELING_AVAILABLE = True
 except ImportError:
-    RUNOFF_MODELING_AVAILABLE = False
-    print("Warning: runoff_modeling module not available")
+    # Fallback for direct script execution
+    sys.path.insert(0, os.path.dirname(__file__))
+    from utils import (
+        validate_spatial_data,
+        reproject_to_standard,
+        create_buffers,
+        calculate_infrastructure_density,
+        correlation_analysis,
+        classify_vulnerability,
+        assign_quadrant,
+        calculate_gap_index
+    )
+    try:
+        from spatial_clustering import perform_spatial_clustering_analysis
+        SPATIAL_CLUSTERING_AVAILABLE = True
+    except ImportError:
+        SPATIAL_CLUSTERING_AVAILABLE = False
+    
+    try:
+        from runoff_modeling import perform_runoff_modeling
+        RUNOFF_MODELING_AVAILABLE = True
+    except ImportError:
+        RUNOFF_MODELING_AVAILABLE = False
 
 
 class GeospatialAnalysisTool:

@@ -4,7 +4,12 @@ Implements SCS Curve Number method for stormwater runoff estimation
 """
 import numpy as np
 import pandas as pd
-from utils.statistics import calculate_runoff_depth, calculate_cn_from_imperviousness
+
+# Support both direct execution and package import
+try:
+    from .utils.statistics import calculate_runoff_depth, calculate_cn_from_imperviousness
+except ImportError:
+    from utils.statistics import calculate_runoff_depth, calculate_cn_from_imperviousness
 
 
 # NOAA Atlas 14 design storm depths for Seattle-Tacoma (inches)

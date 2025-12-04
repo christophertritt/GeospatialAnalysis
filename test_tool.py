@@ -5,8 +5,8 @@ Test script to verify the geospatial analysis tool works correctly
 import sys
 import os
 
-# Add scripts to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
+# Add project root to path for imports
+sys.path.insert(0, os.path.dirname(__file__))
 
 def test_imports():
     """Test that all required modules can be imported"""
@@ -55,7 +55,7 @@ def test_utils():
     print("\nTesting utility functions...")
     
     try:
-        from utils import (
+        from scripts.utils import (
             validate_spatial_data,
             reproject_to_standard,
             calculate_runoff_depth,
@@ -86,7 +86,7 @@ def test_main_tool():
     print("\nTesting main analysis tool...")
     
     try:
-        from geospatial_analysis import GeospatialAnalysisTool
+        from scripts.geospatial_analysis import GeospatialAnalysisTool
         print("✓ GeospatialAnalysisTool imported successfully")
         
         # Initialize tool

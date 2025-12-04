@@ -7,10 +7,10 @@ This script demonstrates how to use the tool with sample data
 import sys
 import os
 
-# Add scripts to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
+# Add project root to path
+sys.path.insert(0, os.path.dirname(__file__))
 
-from geospatial_analysis import GeospatialAnalysisTool
+from scripts.geospatial_analysis import GeospatialAnalysisTool
 
 
 def main():
@@ -53,7 +53,7 @@ def main():
     # Optional: Spatial clustering analysis
     print("\nStep 6: Spatial clustering (if available)")
     try:
-        from spatial_clustering import perform_spatial_clustering_analysis
+        from scripts.spatial_clustering import perform_spatial_clustering_analysis
         
         if 'gap_index' in tool.segments.columns:
             clustering_results, tool.segments = perform_spatial_clustering_analysis(
@@ -67,7 +67,7 @@ def main():
     # Optional: Runoff modeling
     print("\nStep 7: Runoff modeling (if available)")
     try:
-        from runoff_modeling import perform_runoff_modeling
+        from scripts.runoff_modeling import perform_runoff_modeling
         
         tool.segments = perform_runoff_modeling(
             tool.segments,
