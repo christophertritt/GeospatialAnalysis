@@ -1,0 +1,178 @@
+{
+  "generated_at": "2025-12-03T23:31:34.735830",
+  "data_version": "1.0",
+  "statistics": {
+    "data_availability": {
+      "segments_available": true,
+      "infrastructure_available": true,
+      "segment_count": 1746,
+      "infrastructure_count": 169
+    },
+    "corridor_metrics": {
+      "total_length_miles": 2810.868390360158,
+      "total_buffer_area_acres": 195061.3084518455
+    },
+    "vulnerability_summary": {
+      "mean_vulnerability": 7.883734249713632,
+      "max_vulnerability": 8.5,
+      "high_vulnerability_count": 1473,
+      "high_vulnerability_percent": 84.36426116838489
+    },
+    "infrastructure_summary": {
+      "total_facilities": 169,
+      "total_area_sqft": 0.0,
+      "total_area_acres": 0.0,
+      "segments_with_infrastructure": 43,
+      "coverage_percent": 2.4627720504009165,
+      "mean_density": 0.06835098032985146,
+      "max_density": 11.205950671208056,
+      "low_density_count": 1746
+    },
+    "spatial_statistics": {
+      "lisa_clusters": {
+        "Not Significant": 1488,
+        "LL (Low-Low)": 247,
+        "LH (Low-High)": 11
+      },
+      "hotspot_classes": {
+        "Not Significant": 1654,
+        "Cold Spot (99%)": 60,
+        "Cold Spot (95%)": 23,
+        "Cold Spot (90%)": 9
+      },
+      "hot_spots_99": 0,
+      "hot_spots_95": 0
+    },
+    "runoff_summary": {
+      "available_scenarios": [
+        "runoff_current_2-year",
+        "runoff_no_gsi_2-year",
+        "runoff_current_10-year",
+        "runoff_no_gsi_10-year",
+        "runoff_current_25-year",
+        "runoff_no_gsi_25-year",
+        "runoff_optimized_10-year"
+      ],
+      "mean_runoff_25yr_inches": 3.047980820396354,
+      "total_volume_25yr_acft": 49271.806464163776
+    },
+    "gap_analysis": {
+      "high_gap_count": 1746,
+      "high_gap_percent": 100.0,
+      "mean_gap_index": 7.883278576511432
+    }
+  },
+  "charts": {
+    "vulnerability_distribution": {
+      "counts": [
+        135,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        138,
+        0,
+        0,
+        0,
+        0,
+        0,
+        260,
+        0,
+        0,
+        0,
+        1213
+      ],
+      "bin_edges": [
+        4.5,
+        4.7,
+        4.9,
+        5.1,
+        5.3,
+        5.5,
+        5.7,
+        5.9,
+        6.1,
+        6.3,
+        6.5,
+        6.7,
+        6.9,
+        7.1,
+        7.300000000000001,
+        7.5,
+        7.7,
+        7.9,
+        8.1,
+        8.3,
+        8.5
+      ]
+    },
+    "density_distribution": {
+      "counts": [
+        1703,
+        10,
+        10,
+        9,
+        3,
+        2,
+        3,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+        1,
+        1
+      ],
+      "bin_edges": [
+        0.0,
+        0.5602975335604028,
+        1.1205950671208056,
+        1.6808926006812084,
+        2.241190134241611,
+        2.801487667802014,
+        3.3617852013624168,
+        3.9220827349228196,
+        4.482380268483222,
+        5.042677802043626,
+        5.602975335604028,
+        6.16327286916443,
+        6.7235704027248335,
+        7.283867936285237,
+        7.844165469845639,
+        8.404463003406041,
+        8.964760536966445,
+        9.525058070526848,
+        10.085355604087251,
+        10.645653137647653,
+        11.205950671208056
+      ]
+    },
+    "hotspot_classification": {
+      "Not Significant": 1654,
+      "Cold Spot (99%)": 60,
+      "Cold Spot (95%)": 23,
+      "Cold Spot (90%)": 9
+    }
+  },
+  "data_files": {
+    "segments_simplified": "segments_simplified.geojson",
+    "statistics": "summary_statistics.json",
+    "manifest": "data_manifest.json"
+  },
+  "status": {
+    "ready_for_dashboard": true,
+    "infrastructure_integrated": true,
+    "spatial_statistics_available": true,
+    "runoff_analysis_available": true
+  }
+}

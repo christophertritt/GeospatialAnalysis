@@ -1,0 +1,61 @@
+{
+  "data_availability": {
+    "segments_available": true,
+    "infrastructure_available": true,
+    "segment_count": 1746,
+    "infrastructure_count": 169
+  },
+  "corridor_metrics": {
+    "total_length_miles": 2810.868390360158,
+    "total_buffer_area_acres": 195061.3084518455
+  },
+  "vulnerability_summary": {
+    "mean_vulnerability": 7.883734249713632,
+    "max_vulnerability": 8.5,
+    "high_vulnerability_count": 1473,
+    "high_vulnerability_percent": 84.36426116838489
+  },
+  "infrastructure_summary": {
+    "total_facilities": 169,
+    "total_area_sqft": 0.0,
+    "total_area_acres": 0.0,
+    "segments_with_infrastructure": 43,
+    "coverage_percent": 2.4627720504009165,
+    "mean_density": 0.06835098032985146,
+    "max_density": 11.205950671208056,
+    "low_density_count": 1746
+  },
+  "spatial_statistics": {
+    "lisa_clusters": {
+      "Not Significant": 1488,
+      "LL (Low-Low)": 247,
+      "LH (Low-High)": 11
+    },
+    "hotspot_classes": {
+      "Not Significant": 1654,
+      "Cold Spot (99%)": 60,
+      "Cold Spot (95%)": 23,
+      "Cold Spot (90%)": 9
+    },
+    "hot_spots_99": 0,
+    "hot_spots_95": 0
+  },
+  "runoff_summary": {
+    "available_scenarios": [
+      "runoff_current_2-year",
+      "runoff_no_gsi_2-year",
+      "runoff_current_10-year",
+      "runoff_no_gsi_10-year",
+      "runoff_current_25-year",
+      "runoff_no_gsi_25-year",
+      "runoff_optimized_10-year"
+    ],
+    "mean_runoff_25yr_inches": 3.047980820396354,
+    "total_volume_25yr_acft": 49271.806464163776
+  },
+  "gap_analysis": {
+    "high_gap_count": 1746,
+    "high_gap_percent": 100.0,
+    "mean_gap_index": 7.883278576511432
+  }
+}
