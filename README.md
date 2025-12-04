@@ -100,6 +100,23 @@ python scripts/geospatial_analysis.py \
 
 **All three required parameters (rail, infrastructure, imperviousness) must be provided.**
 
+### Visualization & Interaction
+
+#### 1. Static Maps & Charts
+Generate publication-ready maps and charts:
+```bash
+python scripts/visualize_results.py --output-dir data/outputs_final
+```
+
+#### 2. Interactive Dashboard (Streamlit)
+Launch a web-based dashboard to explore the data dynamically:
+```bash
+streamlit run scripts/dashboard.py
+```
+
+#### 3. Jupyter Notebook
+Open `notebooks/interactive_exploration.ipynb` for step-by-step interactive analysis using `geopandas.explore()`.
+
 ### Data Requirements
 
 ⚠️ **All analyses now require real data from external sources. No sample/synthetic data is generated.**
