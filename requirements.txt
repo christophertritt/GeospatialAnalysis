@@ -31,6 +31,7 @@ mapclassify>=2.5.0
 streamlit>=1.24.0
 streamlit-folium>=0.11.0
 jupyter>=1.0.0
+watchdog>=3.0.0
 
 # Other utilities
 click>=8.1.0
