@@ -27,6 +27,21 @@ from utils import (
     calculate_gap_index
 )
 
+# Import analysis modules
+try:
+    from spatial_clustering import perform_spatial_clustering_analysis
+    SPATIAL_CLUSTERING_AVAILABLE = True
+except ImportError:
+    SPATIAL_CLUSTERING_AVAILABLE = False
+    print("Warning: spatial_clustering module not available")
+
+try:
+    from runoff_modeling import perform_runoff_modeling
+    RUNOFF_MODELING_AVAILABLE = True
+except ImportError:
+    RUNOFF_MODELING_AVAILABLE = False
+    print("Warning: runoff_modeling module not available")
+
 
 class GeospatialAnalysisTool:
     """Main analysis tool for rail corridor geospatial analysis"""
@@ -448,6 +463,19 @@ def main():
     
     # Phase 4: Assess alignment
     tool.assess_alignment()
+    
+    # Phase 5: Spatial clustering (if available)
+    if SPATIAL_CLUSTERING_AVAILABLE and 'gap_index' in tool.segments.columns:
+        clustering_results, tool.segments = perform_spatial_clustering_analysis(
+            tool.segments, 
+            variable_col='gap_index'
+        )
+        if clustering_results:
+            tool.results['spatial_clustering'] = clustering_results
+    
+    # Phase 6: Runoff modeling (if available)
+    if RUNOFF_MODELING_AVAILABLE:
+        tool.segments = perform_runoff_modeling(tool.segments)
     
     # Generate report
     tool.generate_report()
