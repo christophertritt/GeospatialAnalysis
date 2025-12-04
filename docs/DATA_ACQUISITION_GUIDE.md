@@ -176,14 +176,7 @@ For data access issues:
 
 ## Sample Data
 
-For testing and demonstration, the tool can generate synthetic data:
-
-```python
-from scripts.geospatial_analysis import GeospatialAnalysisTool
-
-tool = GeospatialAnalysisTool()
-tool.load_data()  # Creates sample data automatically
-```
+**Note:** Sample data generation has been removed in the latest version. You must provide real data files to run the analysis. See `CHANGES_SUMMARY.md` for details.
 
 ## Additional Resources
 
