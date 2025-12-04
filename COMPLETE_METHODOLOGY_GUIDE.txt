@@ -1,0 +1,2574 @@
+COMPREHENSIVE METHODOLOGY GUIDE
+Spatial Alignment of Permeable Pavement and Flood Vulnerability 
+in Seattle-Tacoma Rail Corridors
+
+Author: Research Design Team
+Date: December 3, 2025
+
+==================================================================
+TABLE OF CONTENTS
+==================================================================
+1. Data Acquisition Guide
+2. Software and Tools Setup
+3. Phase 1: Data Preparation and Corridor Segmentation
+4. Phase 2: Vulnerability Index Computation
+5. Phase 3: Infrastructure Density Analysis
+6. Phase 4: Alignment Assessment
+7. Phase 5: Spatial Clustering Analysis
+8. Phase 6: Runoff Reduction Modeling
+9. Validation and Robustness Checks
+10. Visualization and Reporting
+
+==================================================================
+1. DATA ACQUISITION GUIDE
+==================================================================
+
+1.1 RAIL INFRASTRUCTURE DATA
+----------------------------------------------------------------------
+Source: Washington State Department of Transportation
+URL: https://geo.wa.gov/datasets/wsdot::wsdot-railways/
+Data Type: Shapefile/GeoJSON
+Contains: Rail line geometries, ownership, track type
+
+Alternative: Sound Transit GIS Data
+URL: https://www.soundtransit.org/get-to-know-us/documents-reports
+Request: GIS layers for Sounder South Line corridor
+
+Acquisition Steps:
+1. Navigate to WSDOT GeoData portal
+2. Search for "railways" or "rail lines"
+3. Download as Shapefile or GeoJSON
+4. Filter to BNSF mainline and Sounder corridor
+5. Verify coordinates in EPSG:2927 (WA State Plane South)
+
+Station Locations:
+URL: https://data.seattle.gov (for King Street Station)
+URL: https://gisdata-piercecowa.opendata.arcgis.com/ (Pierce County stations)
+
+1.2 PERMEABLE PAVEMENT INFRASTRUCTURE
+----------------------------------------------------------------------
+Seattle Public Utilities:
+URL: https://data-seattlecitygis.opendata.arcgis.com/
+Dataset: "SPU DWW Permeable Pavement"
+Direct Link: Search for dataset ID: 5e36e5442b184e81b975a34d9fde4b82
+
+Download Method:
+1. Go to Seattle GeoData portal
+2. Search "SPU permeable pavement"
+3. Click on dataset
+4. Export as: Shapefile, GeoJSON, or CSV (with lat/long)
+5. Download includes: facility_type, install_date, area_sqft, location
+
+King County:
+URL: https://gis-kingcounty.opendata.arcgis.com/
+Search: "green stormwater infrastructure" OR "permeable pavement"
+Contact: King County Water and Land Resources Division
+Email: WLRD-GIS@kingcounty.gov (request GSI database)
+
+Pierce County:
+URL: https://gisdata-piercecowa.opendata.arcgis.com/
+Search: "stormwater facilities"
+Contact: Pierce County Public Works & Utilities
+Phone: (253) 798-7470
+
+Tacoma:
+URL: https://data.cityoftacoma.org/
+Search: "stormwater" OR "green infrastructure"
+Contact: Tacoma Environmental Services
+Phone: (253) 502-2100
+
+Expected Attributes:
+- FacilityID
+- FacilityType (pervious concrete, porous asphalt, PICP)
+- InstallDate
+- SurfaceArea_sqft
+- Ownership (public/private)
+- MaintenanceHistory
+- Location (point or polygon geometry)
+
+1.3 ELEVATION DATA (LiDAR)
+----------------------------------------------------------------------
+Source: Washington State Lidar Portal
+URL: https://lidarportal.dnr.wa.gov/
+
+Acquisition Steps:
+1. Navigate to portal
+2. Select area of interest (King and Pierce Counties)
+3. Filter for most recent acquisitions (2021 or later)
+4. Download as: LAS/LAZ files OR pre-processed DEM
+5. Recommended resolution: 3-foot or better
+
+Processing Requirements:
+- LAStools (free/open source) or ArcGIS Spatial Analyst
+- Convert to bare-earth DEM if downloading raw LAS
+- Output: Raster DEM, 3-6 foot resolution, GeoTIFF format
+
+Alternative (Lower Resolution):
+USGS National Elevation Dataset (NED)
+URL: https://apps.nationalmap.gov/downloader/
+Resolution: 1/3 arc-second (~10 meters)
+Format: GeoTIFF
+
+1.4 SOIL DATA
+----------------------------------------------------------------------
+Source: USDA NRCS Web Soil Survey
+URL: https://websoilsurvey.nrcs.usda.gov/
+
+Download Method:
+1. Navigate to Web Soil Survey
+2. Set AOI (Area of Interest) using:
+   - Upload corridor buffer shapefile, OR
+   - Draw polygon around Seattle-Tacoma corridor
+3. Select "Soil Data Explorer" tab
+4. Choose: "Hydrologic Soil Group"
+5. Export: Spatial data (Shapefile) + Tabular data
+
+Alternative: SSURGO via API
+Python package: soil-data-access
+Installation: pip install soil-data-access
+
+Code Example:
+```python
+import requests
+
+# SSURGO REST API
+url = "https://sdmdataaccess.nrcs.usda.gov/Tabular/SDMTabularService/post.rest"
+
+# SQL query for King County soils
+query = """
+SELECT mukey, musym, muname, hydgrpdcd
+FROM mapunit
+WHERE areasymbol = 'WA633'  -- King County
+"""
+
+# Post request
+response = requests.post(url, data={'query': query, 'format': 'JSON'})
+data = response.json()
+```
+
+Required Attributes:
+- mukey (map unit key)
+- Hydrologic Soil Group (A, B, C, D, A/D, B/D, C/D)
+- Drainage class
+- Saturated hydraulic conductivity (optional)
+
+1.5 LAND COVER / IMPERVIOUSNESS
+----------------------------------------------------------------------
+Source: USGS National Land Cover Database (NLCD)
+URL: https://www.mrlc.gov/data
+
+Dataset: NLCD 2021 Percent Developed Imperviousness
+Resolution: 30 meters
+Format: GeoTIFF
+
+Download Method:
+1. Go to Multi-Resolution Land Characteristics Consortium
+2. Select "NLCD 2021"
+3. Choose "Percent Developed Imperviousness" layer
+4. Download for: Western Washington OR specific counties
+5. Clip to study area in GIS
+
+Alternative (Higher Resolution for Seattle):
+Seattle Open Data Portal
+URL: https://data.seattle.gov
+Search: "impervious surfaces" OR "land cover"
+
+1.6 DRAINAGE INFRASTRUCTURE
+----------------------------------------------------------------------
+Seattle:
+URL: https://data.seattle.gov
+Datasets: "Storm Drain Lines", "Storm Drain Catch Basins"
+
+King County:
+URL: https://gis-kingcounty.opendata.arcgis.com/
+Search: "storm" OR "drainage"
+
+Pierce County:
+URL: https://gisdata-piercecowa.opendata.arcgis.com/
+Search: "stormwater infrastructure"
+
+Tacoma:
+URL: https://data.cityoftacoma.org
+Search: "storm drainage"
+
+Expected Features:
+- Storm drain pipes (line features)
+- Catch basins (point features)
+- Detention facilities (polygon features)
+- Natural drainage courses (streams, creeks)
+
+1.7 PRECIPITATION DATA
+----------------------------------------------------------------------
+Source: NOAA National Centers for Environmental Information
+URL: https://www.ncei.noaa.gov/cdo-web/
+
+Station: Seattle-Tacoma International Airport (GHCND:USW00024233)
+
+Download Method:
+1. Navigate to Climate Data Online
+2. Select dataset: "Daily Summaries"
+3. Select station: SEATTLE TACOMA INTERNATIONAL AIRPORT
+4. Date range: 1991-2020 (for normals) or custom range
+5. Variables: PRCP (precipitation)
+6. Output format: CSV
+
+Design Storm Values:
+Source: NOAA Atlas 14
+URL: https://hdsc.nws.noaa.gov/pfds/
+Location: Seattle-Tacoma area (47.45°N, 122.31°W)
+Extract: 2-year, 10-year, 25-year 24-hour precipitation depths
+
+1.8 HISTORICAL FLOODING/SERVICE DISRUPTION DATA
+----------------------------------------------------------------------
+Sound Transit Service Alerts Archive:
+URL: https://www.soundtransit.org/ride-with-us/service-alerts
+Method: Web scraping OR public records request
+
+Public Records Request:
+Contact: Sound Transit Public Records Officer
+Email: publicrecords@soundtransit.org
+Request: "All service disruption records due to flooding or water 
+         accumulation affecting Sounder South Line, January 2015 
+         to December 2024"
+
+Alternative Sources:
+- Seattle Times archives (search: "Sounder flooding" OR "SODO flooding")
+- King County Emergency Management reports
+- Social media monitoring (Twitter/X: @SoundTransit)
+
+==================================================================
+2. SOFTWARE AND TOOLS SETUP
+==================================================================
+
+2.1 REQUIRED SOFTWARE
+----------------------------------------------------------------------
+Primary GIS Platform:
+- ArcGIS Pro 3.1+ (institutional license) OR
+- QGIS 3.28+ LTR (free, open-source)
+  Download: https://qgis.org/
+
+Python Environment:
+- Python 3.9+ with Anaconda
+  Download: https://www.anaconda.com/download
+
+R Statistical Software:
+- R 4.3+
+- RStudio Desktop (optional but recommended)
+  Download: https://posit.co/download/rstudio-desktop/
+
+Database (Optional):
+- PostgreSQL 15+ with PostGIS extension
+  Download: https://www.postgresql.org/download/
+
+2.2 PYTHON PACKAGES
+----------------------------------------------------------------------
+Install via conda/pip:
+
+```bash
+# Create environment
+conda create -n rail_corridor python=3.11
+conda activate rail_corridor
+
+# Geospatial packages
+conda install -c conda-forge geopandas
+conda install -c conda-forge rasterio
+conda install -c conda-forge fiona
+conda install -c conda-forge pyproj
+conda install -c conda-forge shapely
+conda install -c conda-forge rtree
+
+# Analysis packages
+conda install numpy pandas scipy
+conda install scikit-learn
+conda install statsmodels
+
+# Spatial statistics
+pip install pysal
+pip install esda  # Exploratory Spatial Data Analysis
+pip install libpysal
+pip install splot  # Spatial plotting
+
+# Visualization
+conda install matplotlib seaborn
+pip install plotly
+conda install -c conda-forge contextily  # Basemaps
+
+# Hydrological modeling
+pip install pyet  # Evapotranspiration
+# No direct Python package for SCS Curve Number - will code manually
+```
+
+2.3 R PACKAGES
+----------------------------------------------------------------------
+```r
+# Install required packages
+install.packages(c(
+  "sf",           # Simple features for spatial data
+  "terra",        # Raster data handling
+  "spdep",        # Spatial dependence
+  "spatstat",     # Spatial statistics
+  "gstat",        # Geostatistics
+  "ggplot2",      # Visualization
+  "tidyverse",    # Data manipulation
+  "tmap",         # Thematic maps
+  "spatialreg",   # Spatial regression
+  "corrplot",     # Correlation visualization
+  "RColorBrewer"  # Color palettes
+))
+```
+
+2.4 DIRECTORY STRUCTURE
+----------------------------------------------------------------------
+```
+rail_corridor_project/
+│
+├── data/
+│   ├── raw/
+│   │   ├── rail/
+│   │   ├── infrastructure/
+│   │   ├── elevation/
+│   │   ├── soils/
+│   │   ├── landcover/
+│   │   └── drainage/
+│   ├── processed/
+│   └── outputs/
+│
+├── scripts/
+│   ├── 01_data_preparation.py
+│   ├── 02_vulnerability_index.py
+│   ├── 03_infrastructure_density.py
+│   ├── 04_alignment_analysis.py
+│   ├── 05_spatial_clustering.py
+│   ├── 06_runoff_modeling.py
+│   └── utils/
+│       ├── gis_functions.py
+│       └── statistics.py
+│
+├── analysis/
+│   ├── vulnerability_analysis.R
+│   └── spatial_statistics.R
+│
+├── figures/
+│   ├── maps/
+│   └── charts/
+│
+└── docs/
+    ├── methodology.md
+    └── data_dictionary.md
+```
+
+==================================================================
+3. PHASE 1: DATA PREPARATION AND CORRIDOR SEGMENTATION
+==================================================================
+
+3.1 COORDINATE SYSTEM STANDARDIZATION
+----------------------------------------------------------------------
+Standard Projection: Washington State Plane South NAD83(2011)
+EPSG Code: 2927
+Units: US Survey Feet
+
+Python Code:
+```python
+import geopandas as gpd
+from pyproj import CRS
+
+# Define target CRS
+target_crs = CRS.from_epsg(2927)
+
+# Read and reproject rail data
+rail = gpd.read_file('data/raw/rail/rail_lines.shp')
+rail = rail.to_crs(target_crs)
+
+# Reproject all other datasets
+stations = gpd.read_file('data/raw/rail/stations.shp').to_crs(target_crs)
+permeable = gpd.read_file('data/raw/infrastructure/permeable_pavement.shp').to_crs(target_crs)
+
+# Save reprojected data
+rail.to_file('data/processed/rail_2927.shp')
+stations.to_file('data/processed/stations_2927.shp')
+permeable.to_file('data/processed/permeable_2927.shp')
+
+print(f"Rail CRS: {rail.crs}")
+print(f"Total rail length: {rail.geometry.length.sum() / 5280:.1f} miles")
+```
+
+3.2 CORRIDOR BUFFER GENERATION
+----------------------------------------------------------------------
+Create nested buffers: 100m, 250m, 500m
+
+Python Code:
+```python
+import geopandas as gpd
+
+# Read rail corridor
+rail = gpd.read_file('data/processed/rail_2927.shp')
+
+# Filter to Sounder South Line only
+# (assuming rail data has 'line_name' attribute)
+sounder_south = rail[rail['line_name'].str.contains('Sounder|BNSF', case=False)]
+
+# Create buffers (convert meters to feet: 1m = 3.28084 ft)
+buffer_100m = sounder_south.buffer(100 * 3.28084)
+buffer_250m = sounder_south.buffer(250 * 3.28084)
+buffer_500m = sounder_south.buffer(500 * 3.28084)
+
+# Convert to GeoDataFrames
+gdf_100m = gpd.GeoDataFrame(geometry=buffer_100m, crs=rail.crs)
+gdf_250m = gpd.GeoDataFrame(geometry=buffer_250m, crs=rail.crs)
+gdf_500m = gpd.GeoDataFrame(geometry=buffer_500m, crs=rail.crs)
+
+# Dissolve to single multipolygon if needed
+gdf_100m_dissolved = gdf_100m.dissolve()
+gdf_250m_dissolved = gdf_250m.dissolve()
+gdf_500m_dissolved = gdf_500m.dissolve()
+
+# Calculate areas
+area_100m_acres = gdf_100m_dissolved.geometry.area.sum() / 43560  # sqft to acres
+area_250m_acres = gdf_250m_dissolved.geometry.area.sum() / 43560
+area_500m_acres = gdf_500m_dissolved.geometry.area.sum() / 43560
+
+print(f"100m buffer: {area_100m_acres:.0f} acres")
+print(f"250m buffer: {area_250m_acres:.0f} acres")
+print(f"500m buffer: {area_500m_acres:.0f} acres")
+
+# Save buffers
+gdf_100m_dissolved.to_file('data/processed/corridor_buffer_100m.shp')
+gdf_250m_dissolved.to_file('data/processed/corridor_buffer_250m.shp')
+gdf_500m_dissolved.to_file('data/processed/corridor_buffer_500m.shp')
+```
+
+3.3 CORRIDOR SEGMENTATION
+----------------------------------------------------------------------
+Divide corridor into analysis units using station locations
+
+Python Code:
+```python
+import geopandas as gpd
+from shapely.geometry import Point, LineString
+from shapely.ops import split, nearest_points
+import numpy as np
+
+# Load data
+rail_line = gpd.read_file('data/processed/rail_2927.shp')
+stations = gpd.read_file('data/processed/stations_2927.shp')
+
+# Ensure single LineString (merge if multi-part)
+if len(rail_line) > 1:
+    rail_line = rail_line.dissolve()
+
+rail_geometry = rail_line.geometry.iloc[0]
+
+# Function to split line at points
+def split_line_at_points(line, points):
+    """Split a LineString at multiple points"""
+    segments = []
+    current_line = line
+    
+    # Sort points by distance along line
+    point_distances = []
+    for point in points:
+        dist = line.project(point)
+        point_distances.append((dist, point))
+    
+    point_distances.sort()
+    
+    # Split progressively
+    for i, (dist, point) in enumerate(point_distances):
+        # Find nearest point on line
+        nearest = nearest_points(current_line, point)[0]
+        
+        # Split at nearest point
+        try:
+            split_result = split(current_line, nearest.buffer(1))  # 1-foot buffer
+            if len(split_result.geoms) >= 2:
+                segments.append(split_result.geoms[0])
+                # Continue with remainder
+                remaining = split_result.geoms[1:]
+                current_line = remaining[0] if len(remaining) == 1 else \
+                               LineString([pt for geom in remaining for pt in geom.coords])
+        except:
+            pass
+    
+    # Add final segment
+    segments.append(current_line)
+    
+    return segments
+
+# Split corridor at stations
+station_points = stations.geometry.tolist()
+segments = split_line_at_points(rail_geometry, station_points)
+
+# Create GeoDataFrame of segments
+segment_gdf = gpd.GeoDataFrame({
+    'segment_id': range(1, len(segments) + 1),
+    'geometry': segments
+}, crs=rail_line.crs)
+
+# Calculate segment lengths
+segment_gdf['length_feet'] = segment_gdf.geometry.length
+segment_gdf['length_miles'] = segment_gdf['length_feet'] / 5280
+
+# Assign station names to segments
+# (requires manual attribution based on station names)
+# For now, create generic names
+segment_gdf['segment_name'] = [
+    f"Segment_{i:02d}" for i in range(1, len(segments) + 1)
+]
+
+print(f"Created {len(segment_gdf)} segments")
+print(f"Average segment length: {segment_gdf['length_miles'].mean():.2f} miles")
+print(f"Min: {segment_gdf['length_miles'].min():.2f}, Max: {segment_gdf['length_miles'].max():.2f}")
+
+# Save segments
+segment_gdf.to_file('data/processed/corridor_segments.shp')
+
+# Create buffers for each segment
+for buffer_dist in [100, 250, 500]:
+    segment_buffers = segment_gdf.copy()
+    segment_buffers['geometry'] = segment_gdf.buffer(buffer_dist * 3.28084)
+    segment_buffers.to_file(f'data/processed/segment_buffers_{buffer_dist}m.shp')
+```
+
+3.4 DATA VALIDATION
+----------------------------------------------------------------------
+Check for topology errors, missing data, coordinate issues
+
+Python Code:
+```python
+import geopandas as gpd
+
+def validate_spatial_data(gdf, dataset_name):
+    """Validate spatial dataset"""
+    print(f"\n=== Validating {dataset_name} ===")
+    
+    # Check CRS
+    print(f"CRS: {gdf.crs}")
+    if gdf.crs is None:
+        print("WARNING: No CRS defined!")
+    
+    # Check for null geometries
+    null_geoms = gdf.geometry.isna().sum()
+    print(f"Null geometries: {null_geoms}")
+    
+    # Check for invalid geometries
+    invalid = ~gdf.geometry.is_valid
+    print(f"Invalid geometries: {invalid.sum()}")
+    if invalid.sum() > 0:
+        print("  Attempting to fix...")
+        gdf.loc[invalid, 'geometry'] = gdf.loc[invalid, 'geometry'].buffer(0)
+        still_invalid = ~gdf.geometry.is_valid
+        print(f"  Remaining invalid: {still_invalid.sum()}")
+    
+    # Check bounds
+    bounds = gdf.total_bounds
+    print(f"Bounds: {bounds}")
+    
+    # Check for duplicates (if has ID field)
+    if 'id' in gdf.columns or 'FID' in gdf.columns:
+        id_col = 'id' if 'id' in gdf.columns else 'FID'
+        duplicates = gdf[id_col].duplicated().sum()
+        print(f"Duplicate IDs: {duplicates}")
+    
+    # Summary statistics
+    print(f"Total features: {len(gdf)}")
+    print(f"Geometry types: {gdf.geometry.type.value_counts().to_dict()}")
+    
+    return gdf
+
+# Validate all datasets
+segments = gpd.read_file('data/processed/corridor_segments.shp')
+segments = validate_spatial_data(segments, "Corridor Segments")
+
+permeable = gpd.read_file('data/processed/permeable_2927.shp')
+permeable = validate_spatial_data(permeable, "Permeable Pavement")
+
+# Save validated data
+segments.to_file('data/processed/corridor_segments_validated.shp')
+permeable.to_file('data/processed/permeable_validated.shp')
+```
+
+==================================================================
+4. PHASE 2: VULNERABILITY INDEX COMPUTATION
+==================================================================
+
+4.1 ELEVATION PROCESSING
+----------------------------------------------------------------------
+Generate topographic position index
+
+Python Code:
+```python
+import rasterio
+from rasterio.windows import Window
+import numpy as np
+from scipy.ndimage import generic_filter
+
+# Read DEM
+with rasterio.open('data/raw/elevation/dem_2ft.tif') as src:
+    dem = src.read(1)
+    transform = src.transform
+    crs = src.crs
+    profile = src.profile
+
+# Calculate local minimum in moving window
+# Window size: 1km = ~3281 feet, at 3-foot resolution = ~1094 pixels
+window_size = 1094  # Adjust based on DEM resolution
+
+def local_minimum(window):
+    """Return minimum value in window"""
+    return np.min(window)
+
+# Apply focal minimum
+local_min = generic_filter(dem, local_minimum, size=window_size, mode='reflect')
+
+# Calculate relative elevation
+relative_elevation = dem - local_min
+
+# Normalize to 0-1 range within each local window
+elevation_range = generic_filter(dem, lambda x: np.max(x) - np.min(x), 
+                                 size=window_size, mode='reflect')
+normalized_elevation = relative_elevation / (elevation_range + 0.01)  # Avoid division by zero
+
+# Convert to vulnerability points (0-2 scale)
+# Lower relative elevation = higher vulnerability
+# 0-20% of local range = 2 points
+# 20-50% = 1.5 points
+# 50-80% = 1 point  
+# 80-100% = 0 points
+
+topo_vulnerability = np.zeros_like(normalized_elevation)
+topo_vulnerability[normalized_elevation < 0.20] = 2.0
+topo_vulnerability[(normalized_elevation >= 0.20) & (normalized_elevation < 0.50)] = 1.5
+topo_vulnerability[(normalized_elevation >= 0.50) & (normalized_elevation < 0.80)] = 1.0
+topo_vulnerability[normalized_elevation >= 0.80] = 0.0
+
+# Save output
+profile.update(dtype=rasterio.float32, count=1, compress='lzw')
+with rasterio.open('data/processed/topographic_vulnerability.tif', 'w', **profile) as dst:
+    dst.write(topo_vulnerability.astype(np.float32), 1)
+
+print("Topographic vulnerability calculated")
+print(f"Mean: {np.mean(topo_vulnerability):.2f}")
+print(f"Std: {np.std(topo_vulnerability):.2f}")
+```
+
+4.2 SLOPE CALCULATION
+----------------------------------------------------------------------
+Python Code:
+```python
+import rasterio
+import numpy as np
+
+def calculate_slope(dem):
+    """Calculate slope in percent from DEM"""
+    # Get cell size (assuming square pixels)
+    cell_size = 3.0  # feet (adjust to your DEM resolution)
+    
+    # Calculate gradients
+    dz_dx = np.gradient(dem, axis=1) / cell_size
+    dz_dy = np.gradient(dem, axis=0) / cell_size
+    
+    # Calculate slope in degrees
+    slope_rad = np.arctan(np.sqrt(dz_dx**2 + dz_dy**2))
+    slope_percent = np.tan(slope_rad) * 100
+    
+    return slope_percent
+
+# Read DEM
+with rasterio.open('data/processed/dem_clipped.tif') as src:
+    dem = src.read(1)
+    profile = src.profile
+
+# Calculate slope
+slope = calculate_slope(dem)
+
+# Convert to vulnerability points
+# 0-2% = 2 points (flat, high ponding risk)
+# 2-5% = 1.5 points
+# 5-10% = 1 point
+# >10% = 0 points (steep, rapid drainage)
+
+slope_vulnerability = np.zeros_like(slope)
+slope_vulnerability[slope < 2] = 2.0
+slope_vulnerability[(slope >= 2) & (slope < 5)] = 1.5
+slope_vulnerability[(slope >= 5) & (slope < 10)] = 1.0
+slope_vulnerability[slope >= 10] = 0.0
+
+# Save
+with rasterio.open('data/processed/slope_vulnerability.tif', 'w', **profile) as dst:
+    dst.write(slope_vulnerability.astype(np.float32), 1)
+
+print(f"Slope vulnerability: Mean={np.mean(slope_vulnerability):.2f}")
+```
+
+4.3 SOIL DRAINAGE CLASSIFICATION
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+from rasterio import features
+import rasterio
+import numpy as np
+
+# Read soil polygons
+soils = gpd.read_file('data/raw/soils/ssurgo_soils.shp')
+
+# Create hydrologic soil group vulnerability scores
+# Group D (very low infiltration) = 2 points
+# Group C = 1.5 points
+# Group B = 1 point
+# Group A (high infiltration) = 0 points
+
+# Map soil groups to scores
+soil_score_map = {
+    'A': 0.0,
+    'B': 1.0,
+    'C': 1.5,
+    'D': 2.0,
+    'A/D': 2.0,  # Conservative: use restrictive class
+    'B/D': 2.0,
+    'C/D': 2.0
+}
+
+soils['vuln_score'] = soils['hydgrpdcd'].map(soil_score_map)
+
+# Handle any unmapped values
+soils['vuln_score'].fillna(1.5, inplace=True)  # Default to moderate
+
+# Rasterize soil vulnerability
+# Read DEM for reference grid
+with rasterio.open('data/processed/dem_clipped.tif') as src:
+    profile = src.profile
+    transform = src.transform
+    shape = (src.height, src.width)
+
+# Rasterize soils
+soil_vulnerability = features.rasterize(
+    [(geom, value) for geom, value in zip(soils.geometry, soils['vuln_score'])],
+    out_shape=shape,
+    transform=transform,
+    fill=1.5,  # Default value
+    dtype=np.float32
+)
+
+# Save
+with rasterio.open('data/processed/soil_vulnerability.tif', 'w', **profile) as dst:
+    dst.write(soil_vulnerability, 1)
+
+print(f"Soil vulnerability: Mean={np.mean(soil_vulnerability):.2f}")
+```
+
+4.4 IMPERVIOUS SURFACE RATIO
+----------------------------------------------------------------------
+Python Code:
+```python
+import rasterio
+import numpy as np
+import geopandas as gpd
+from rasterstats import zonal_stats
+
+# Read NLCD imperviousness (0-100 percent)
+with rasterio.open('data/raw/landcover/nlcd_imperv_2021.tif') as src:
+    imperv = src.read(1)
+    profile = src.profile
+
+# Clip to corridor if needed
+# (Code depends on whether you've already clipped)
+
+# Convert percent imperviousness to vulnerability points
+# >75% = 2 points
+# 60-75% = 1.5 points
+# 45-60% = 1 point
+# <45% = 0 points
+
+imperv_vulnerability = np.zeros_like(imperv, dtype=np.float32)
+imperv_vulnerability[imperv > 75] = 2.0
+imperv_vulnerability[(imperv > 60) & (imperv <= 75)] = 1.5
+imperv_vulnerability[(imperv > 45) & (imperv <= 60)] = 1.0
+imperv_vulnerability[imperv <= 45] = 0.0
+
+# Save
+with rasterio.open('data/processed/imperv_vulnerability.tif', 'w', **profile) as dst:
+    dst.write(imperv_vulnerability, 1)
+
+# Also calculate watershed-level imperviousness for each segment
+segments = gpd.read_file('data/processed/corridor_segments_validated.shp')
+
+# Zonal statistics
+stats = zonal_stats(
+    segments,
+    'data/raw/landcover/nlcd_imperv_2021.tif',
+    stats=['mean', 'median', 'std'],
+    prefix='imperv_'
+)
+
+# Add to segments
+for key in stats[0].keys():
+    segments[key] = [s[key] for s in stats]
+
+segments.to_file('data/processed/segments_with_imperv.shp')
+
+print(f"Imperviousness vulnerability: Mean={np.mean(imperv_vulnerability):.2f}")
+```
+
+4.5 DRAINAGE INFRASTRUCTURE DISTANCE
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import rasterio
+from rasterio import features
+import numpy as np
+from scipy.ndimage import distance_transform_edt
+
+# Read drainage infrastructure
+drains = gpd.read_file('data/raw/drainage/storm_drains.shp')
+streams = gpd.read_file('data/raw/drainage/streams.shp')
+
+# Combine all drainage features
+all_drainage = pd.concat([drains, streams])
+
+# Read reference raster for grid
+with rasterio.open('data/processed/dem_clipped.tif') as src:
+    profile = src.profile
+    transform = src.transform
+    shape = (src.height, src.width)
+
+# Rasterize drainage (binary: 1=drainage, 0=no drainage)
+drainage_raster = features.rasterize(
+    [(geom, 1) for geom in all_drainage.geometry],
+    out_shape=shape,
+    transform=transform,
+    fill=0,
+    dtype=np.uint8
+)
+
+# Calculate Euclidean distance from drainage
+# Invert: 0=drainage becomes 1, rest becomes 0
+inverted = 1 - drainage_raster
+
+# Distance in pixels
+distance_pixels = distance_transform_edt(inverted)
+
+# Convert pixels to feet (depends on raster resolution)
+pixel_size_feet = 3.0  # Adjust based on raster
+distance_feet = distance_pixels * pixel_size_feet
+
+# Convert feet to meters for classification
+distance_meters = distance_feet / 3.28084
+
+# Convert to vulnerability points
+# >200m = 2 points
+# 100-200m = 1.5 points
+# 50-100m = 1 point
+# <50m = 0 points
+
+drainage_vulnerability = np.zeros_like(distance_meters, dtype=np.float32)
+drainage_vulnerability[distance_meters > 200] = 2.0
+drainage_vulnerability[(distance_meters > 100) & (distance_meters <= 200)] = 1.5
+drainage_vulnerability[(distance_meters > 50) & (distance_meters <= 100)] = 1.0
+drainage_vulnerability[distance_meters <= 50] = 0.0
+
+# Save
+with rasterio.open('data/processed/drainage_vulnerability.tif', 'w', **profile) as dst:
+    dst.write(drainage_vulnerability, 1)
+
+print(f"Drainage vulnerability: Mean={np.mean(drainage_vulnerability):.2f}")
+```
+
+4.6 COMPOSITE VULNERABILITY INDEX
+----------------------------------------------------------------------
+Python Code:
+```python
+import rasterio
+import numpy as np
+from rasterstats import zonal_stats
+import geopandas as gpd
+
+# Read all vulnerability layers
+with rasterio.open('data/processed/topographic_vulnerability.tif') as src:
+    topo = src.read(1)
+    profile = src.profile
+
+with rasterio.open('data/processed/slope_vulnerability.tif') as src:
+    slope = src.read(1)
+
+with rasterio.open('data/processed/soil_vulnerability.tif') as src:
+    soil = src.read(1)
+
+with rasterio.open('data/processed/imperv_vulnerability.tif') as src:
+    imperv = src.read(1)
+
+with rasterio.open('data/processed/drainage_vulnerability.tif') as src:
+    drainage = src.read(1)
+
+# Calculate weighted composite index
+weights = {
+    'topographic': 0.25,
+    'slope': 0.15,
+    'soil': 0.20,
+    'imperv': 0.25,
+    'drainage': 0.15
+}
+
+composite_vulnerability = (
+    weights['topographic'] * topo +
+    weights['slope'] * slope +
+    weights['soil'] * soil +
+    weights['imperv'] * imperv +
+    weights['drainage'] * drainage
+)
+
+# Should range 0-10 (since each component 0-2 and we sum 5 components with weights = 1.0)
+# But double-check
+print(f"Composite vulnerability range: {np.min(composite_vulnerability):.2f} to {np.max(composite_vulnerability):.2f}")
+print(f"Mean: {np.mean(composite_vulnerability):.2f}")
+print(f"Std: {np.std(composite_vulnerability):.2f}")
+
+# Save composite vulnerability raster
+with rasterio.open('data/processed/composite_vulnerability.tif', 'w', **profile) as dst:
+    dst.write(composite_vulnerability.astype(np.float32), 1)
+
+# Extract vulnerability for each corridor segment
+segments = gpd.read_file('data/processed/segments_with_imperv.shp')
+
+# Zonal statistics
+vuln_stats = zonal_stats(
+    segments,
+    'data/processed/composite_vulnerability.tif',
+    stats=['mean', 'median', 'min', 'max', 'std'],
+    prefix='vuln_'
+)
+
+# Add to segments
+for key in vuln_stats[0].keys():
+    segments[key] = [s[key] for s in vuln_stats]
+
+# Classify vulnerability
+def classify_vulnerability(score):
+    if score < 3.34:
+        return 'Low'
+    elif score < 6.67:
+        return 'Moderate'
+    else:
+        return 'High'
+
+segments['vuln_class'] = segments['vuln_mean'].apply(classify_vulnerability)
+
+segments.to_file('data/processed/segments_with_vulnerability.shp')
+
+print("\nVulnerability by class:")
+print(segments['vuln_class'].value_counts())
+```
+
+[CONTINUED IN NEXT FILE DUE TO LENGTH...]
+METHODOLOGY GUIDE - PART 2
+Infrastructure Density and Spatial Analysis
+
+==================================================================
+5. PHASE 3: INFRASTRUCTURE DENSITY ANALYSIS
+==================================================================
+
+5.1 PERMEABLE PAVEMENT INVENTORY PROCESSING
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+# Read permeable pavement data
+perm_seattle = gpd.read_file('data/raw/infrastructure/seattle_permeable.shp')
+perm_king = gpd.read_file('data/raw/infrastructure/king_county_permeable.shp')
+perm_pierce = gpd.read_file('data/raw/infrastructure/pierce_permeable.shp')
+perm_tacoma = gpd.read_file('data/raw/infrastructure/tacoma_permeable.shp')
+
+# Standardize column names across jurisdictions
+def standardize_columns(df, jurisdiction):
+    """Standardize column names"""
+    # Create mapping based on source data structure
+    # This will vary by jurisdiction - inspect data first
+    
+    standard_cols = {
+        'facility_id': 'FacilityID',
+        'facility_type': 'Type',
+        'install_date': 'InstallDate',
+        'area_sqft': 'AreaSqFt',
+        'jurisdiction': 'Jurisdiction'
+    }
+    
+    # Rename columns
+    df = df.rename(columns=standard_cols)
+    
+    # Add jurisdiction if not present
+    if 'Jurisdiction' not in df.columns:
+        df['Jurisdiction'] = jurisdiction
+    
+    return df
+
+# Standardize all datasets
+perm_seattle = standardize_columns(perm_seattle, 'Seattle')
+perm_king = standardize_columns(perm_king, 'King County')
+perm_pierce = standardize_columns(perm_pierce, 'Pierce County')
+perm_tacoma = standardize_columns(perm_tacoma, 'Tacoma')
+
+# Combine all permeable pavement
+all_permeable = pd.concat([perm_seattle, perm_king, perm_pierce, perm_tacoma], 
+                          ignore_index=True)
+
+# Clean installation dates
+def parse_install_date(date_str):
+    """Parse various date formats"""
+    if pd.isna(date_str):
+        return None
+    
+    try:
+        # Try multiple formats
+        for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%Y', '%m/%d/%y']:
+            try:
+                return pd.to_datetime(date_str, format=fmt)
+            except:
+                continue
+        return None
+    except:
+        return None
+
+all_permeable['InstallDate_parsed'] = all_permeable['InstallDate'].apply(parse_install_date)
+all_permeable['InstallYear'] = all_permeable['InstallDate_parsed'].dt.year
+
+# Create temporal cohorts
+def assign_cohort(year):
+    if pd.isna(year):
+        return 'Unknown'
+    elif year < 2006:
+        return '1995-2005'
+    elif year < 2016:
+        return '2006-2015'
+    else:
+        return '2016-2024'
+
+all_permeable['Cohort'] = all_permeable['InstallYear'].apply(assign_cohort)
+
+# Summary statistics by jurisdiction
+print("\n=== Permeable Pavement Inventory Summary ===")
+print(f"Total facilities: {len(all_permeable)}")
+print(f"Total area: {all_permeable['AreaSqFt'].sum():,.0f} sq ft")
+
+print("\nBy jurisdiction:")
+print(all_permeable.groupby('Jurisdiction').agg({
+    'FacilityID': 'count',
+    'AreaSqFt': 'sum'
+}))
+
+print("\nBy installation cohort:")
+print(all_permeable.groupby('Cohort').agg({
+    'FacilityID': 'count',
+    'AreaSqFt': 'sum'
+}))
+
+print("\nBy facility type:")
+if 'Type' in all_permeable.columns:
+    print(all_permeable['Type'].value_counts())
+
+# Save combined dataset
+all_permeable.to_file('data/processed/permeable_pavement_combined.shp')
+```
+
+5.2 SPATIAL JOIN: INFRASTRUCTURE TO CORRIDOR SEGMENTS
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+
+# Read segments with buffers
+segments_100m = gpd.read_file('data/processed/segment_buffers_100m.shp')
+segments_250m = gpd.read_file('data/processed/segment_buffers_250m.shp')
+segments_500m = gpd.read_file('data/processed/segment_buffers_500m.shp')
+
+# Read permeable pavement
+permeable = gpd.read_file('data/processed/permeable_pavement_combined.shp')
+
+# Ensure same CRS
+permeable = permeable.to_crs(segments_250m.crs)
+
+def calculate_infrastructure_density(segments, permeable, buffer_name):
+    """Calculate infrastructure density for each segment"""
+    
+    # Spatial join: which facilities fall within each segment buffer?
+    joined = gpd.sjoin(permeable, segments, how='inner', predicate='intersects')
+    
+    # Aggregate by segment
+    density = joined.groupby('segment_id').agg({
+        'FacilityID': 'count',
+        'AreaSqFt': 'sum'
+    }).reset_index()
+    
+    density.columns = ['segment_id', 'facility_count', 'total_area_sqft']
+    
+    # Merge back to segments
+    segments_with_density = segments.merge(density, on='segment_id', how='left')
+    
+    # Fill NaN (segments with no infrastructure)
+    segments_with_density['facility_count'].fillna(0, inplace=True)
+    segments_with_density['total_area_sqft'].fillna(0, inplace=True)
+    
+    # Calculate buffer area in acres
+    segments_with_density['buffer_area_sqft'] = segments_with_density.geometry.area
+    segments_with_density['buffer_area_acres'] = segments_with_density['buffer_area_sqft'] / 43560
+    
+    # Calculate density (sq ft per acre)
+    segments_with_density['density_sqft_per_acre'] = (
+        segments_with_density['total_area_sqft'] / 
+        segments_with_density['buffer_area_acres']
+    )
+    
+    # Summary statistics
+    print(f"\n=== {buffer_name} Buffer Results ===")
+    print(f"Mean density: {segments_with_density['density_sqft_per_acre'].mean():.1f} sq ft/acre")
+    print(f"Median density: {segments_with_density['density_sqft_per_acre'].median():.1f} sq ft/acre")
+    print(f"Range: {segments_with_density['density_sqft_per_acre'].min():.1f} to {segments_with_density['density_sqft_per_acre'].max():.1f}")
+    print(f"Segments with zero infrastructure: {(segments_with_density['facility_count'] == 0).sum()}")
+    
+    return segments_with_density
+
+# Calculate for all buffer sizes
+segments_100m_density = calculate_infrastructure_density(segments_100m, permeable, "100m")
+segments_250m_density = calculate_infrastructure_density(segments_250m, permeable, "250m")
+segments_500m_density = calculate_infrastructure_density(segments_500m, permeable, "500m")
+
+# Save
+segments_100m_density.to_file('data/processed/segments_100m_with_density.shp')
+segments_250m_density.to_file('data/processed/segments_250m_with_density.shp')
+segments_500m_density.to_file('data/processed/segments_500m_with_density.shp')
+
+# Distance decay analysis
+print("\n=== Distance Decay Pattern ===")
+print(f"100m buffer mean: {segments_100m_density['density_sqft_per_acre'].mean():.1f}")
+print(f"250m buffer mean: {segments_250m_density['density_sqft_per_acre'].mean():.1f}")
+print(f"500m buffer mean: {segments_500m_density['density_sqft_per_acre'].mean():.1f}")
+```
+
+5.3 JURISDICTIONAL COMPARISON
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Read segment data with density
+segments = gpd.read_file('data/processed/segments_250m_with_density.shp')
+
+# Read jurisdictional boundaries
+jurisdictions = gpd.read_file('data/raw/boundaries/jurisdictions.shp')
+
+# Spatial join to assign jurisdiction to each segment
+segments_with_juris = gpd.sjoin(segments, jurisdictions, 
+                                how='left', predicate='intersects')
+
+# Aggregate by jurisdiction
+juris_summary = segments_with_juris.groupby('jurisdiction_name').agg({
+    'segment_id': 'count',
+    'density_sqft_per_acre': ['mean', 'median', 'std', 'min', 'max'],
+    'total_area_sqft': 'sum'
+}).reset_index()
+
+juris_summary.columns = ['Jurisdiction', 'Segment_Count', 'Mean_Density', 
+                         'Median_Density', 'Std_Density', 'Min_Density', 
+                         'Max_Density', 'Total_Infrastructure_SqFt']
+
+print("\n=== Infrastructure Density by Jurisdiction ===")
+print(juris_summary.to_string())
+
+# Statistical test: ANOVA
+from scipy import stats
+
+# Group densities by jurisdiction
+jurisdiction_groups = [
+    segments_with_juris[segments_with_juris['jurisdiction_name'] == j]['density_sqft_per_acre'].values
+    for j in segments_with_juris['jurisdiction_name'].unique()
+]
+
+# Remove groups with <2 observations
+jurisdiction_groups = [g for g in jurisdiction_groups if len(g) >= 2]
+
+if len(jurisdiction_groups) >= 2:
+    f_stat, p_value = stats.f_oneway(*jurisdiction_groups)
+    print(f"\nANOVA F-statistic: {f_stat:.3f}")
+    print(f"P-value: {p_value:.4f}")
+    
+    if p_value < 0.05:
+        print("Significant differences exist between jurisdictions")
+    else:
+        print("No significant differences between jurisdictions")
+
+# Post-hoc pairwise comparisons (if ANOVA significant)
+if p_value < 0.05:
+    from scipy.stats import ttest_ind
+    
+    jurisdictions_list = segments_with_juris['jurisdiction_name'].unique()
+    print("\n=== Pairwise Comparisons (t-tests) ===")
+    
+    for i in range(len(jurisdictions_list)):
+        for j in range(i+1, len(jurisdictions_list)):
+            j1 = jurisdictions_list[i]
+            j2 = jurisdictions_list[j]
+            
+            data1 = segments_with_juris[segments_with_juris['jurisdiction_name'] == j1]['density_sqft_per_acre']
+            data2 = segments_with_juris[segments_with_juris['jurisdiction_name'] == j2]['density_sqft_per_acre']
+            
+            if len(data1) >= 2 and len(data2) >= 2:
+                t_stat, p_val = ttest_ind(data1, data2)
+                print(f"{j1} vs {j2}: t={t_stat:.2f}, p={p_val:.4f}")
+
+# Save results
+juris_summary.to_csv('data/outputs/jurisdiction_comparison.csv', index=False)
+segments_with_juris.to_file('data/processed/segments_with_jurisdiction.shp')
+```
+
+5.4 TEMPORAL COHORT ANALYSIS
+----------------------------------------------------------------------
+Python Code:
+```python
+import pandas as pd
+import geopandas as gpd
+import matplotlib.pyplot as plt
+
+# Read permeable pavement with temporal data
+permeable = gpd.read_file('data/processed/permeable_pavement_combined.shp')
+
+# Cohort analysis
+cohort_summary = permeable.groupby('Cohort').agg({
+    'FacilityID': 'count',
+    'AreaSqFt': 'sum'
+}).reset_index()
+
+cohort_summary.columns = ['Cohort', 'Facility_Count', 'Total_Area_SqFt']
+cohort_summary['Percent_of_Total'] = (
+    cohort_summary['Facility_Count'] / cohort_summary['Facility_Count'].sum() * 100
+)
+
+print("\n=== Installation Timeline ===")
+print(cohort_summary)
+
+# Analyze spatial distribution of cohorts
+segments = gpd.read_file('data/processed/segments_250m_with_density.shp')
+
+for cohort in ['1995-2005', '2006-2015', '2016-2024', 'Unknown']:
+    cohort_facilities = permeable[permeable['Cohort'] == cohort]
+    
+    # Spatial join with segments
+    joined = gpd.sjoin(cohort_facilities, segments, how='inner', predicate='intersects')
+    
+    # Count per segment
+    cohort_counts = joined.groupby('segment_id').size().reset_index(name=f'{cohort}_count')
+    
+    # Merge to segments
+    segments = segments.merge(cohort_counts, on='segment_id', how='left')
+    segments[f'{cohort}_count'].fillna(0, inplace=True)
+
+# Calculate percent early vs recent
+segments['early_count'] = segments['1995-2005_count']
+segments['recent_count'] = segments['2006-2015_count'] + segments['2016-2024_count']
+segments['percent_recent'] = (
+    segments['recent_count'] / (segments['early_count'] + segments['recent_count'] + 0.01) * 100
+)
+
+print("\n=== Temporal Distribution by Segment ===")
+print(f"Mean % recent infrastructure: {segments['percent_recent'].mean():.1f}%")
+print(f"Segments with >50% recent: {(segments['percent_recent'] > 50).sum()}")
+
+segments.to_file('data/processed/segments_with_temporal_analysis.shp')
+```
+
+==================================================================
+6. PHASE 4: ALIGNMENT ASSESSMENT
+==================================================================
+
+6.1 CORRELATION ANALYSIS
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import pandas as pd
+from scipy import stats
+import numpy as np
+
+# Read segments with vulnerability and density
+segments = gpd.read_file('data/processed/segments_with_vulnerability.shp')
+density_data = gpd.read_file('data/processed/segments_250m_with_density.shp')
+
+# Merge
+analysis_data = segments.merge(
+    density_data[['segment_id', 'density_sqft_per_acre', 'facility_count']], 
+    on='segment_id'
+)
+
+# Remove any segments with missing data
+analysis_data = analysis_data.dropna(subset=['vuln_mean', 'density_sqft_per_acre'])
+
+print(f"\n=== Alignment Analysis (n={len(analysis_data)} segments) ===")
+
+# Pearson correlation
+pearson_r, pearson_p = stats.pearsonr(
+    analysis_data['vuln_mean'], 
+    analysis_data['density_sqft_per_acre']
+)
+
+print(f"Pearson correlation: r = {pearson_r:.3f}, p = {pearson_p:.4f}")
+
+# Spearman correlation (non-parametric)
+spearman_r, spearman_p = stats.spearmanr(
+    analysis_data['vuln_mean'], 
+    analysis_data['density_sqft_per_acre']
+)
+
+print(f"Spearman correlation: ρ = {spearman_r:.3f}, p = {spearman_p:.4f}")
+
+# Interpretation
+if pearson_p < 0.05:
+    if pearson_r < 0:
+        print("Significant INVERSE correlation: High vulnerability → Lower density")
+    else:
+        print("Significant POSITIVE correlation: High vulnerability → Higher density")
+else:
+    print("No significant correlation detected")
+
+# Scatter plot with regression line
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+plt.figure(figsize=(10, 6))
+sns.scatterplot(data=analysis_data, x='vuln_mean', y='density_sqft_per_acre', s=100)
+
+# Add regression line
+z = np.polyfit(analysis_data['vuln_mean'], analysis_data['density_sqft_per_acre'], 1)
+p = np.poly1d(z)
+x_line = np.linspace(analysis_data['vuln_mean'].min(), 
+                      analysis_data['vuln_mean'].max(), 100)
+plt.plot(x_line, p(x_line), "r--", alpha=0.8, linewidth=2)
+
+plt.xlabel('Vulnerability Index (0-10)', fontsize=12)
+plt.ylabel('Infrastructure Density (sq ft/acre)', fontsize=12)
+plt.title(f'Alignment Assessment\nr = {pearson_r:.3f}, p = {pearson_p:.4f}', fontsize=14)
+plt.grid(alpha=0.3)
+plt.savefig('figures/alignment_scatterplot.png', dpi=300, bbox_inches='tight')
+plt.close()
+
+print("Scatter plot saved to figures/alignment_scatterplot.png")
+
+# Save results
+results = pd.DataFrame({
+    'Analysis': ['Pearson', 'Spearman'],
+    'Correlation': [pearson_r, spearman_r],
+    'P_value': [pearson_p, spearman_p]
+})
+
+results.to_csv('data/outputs/correlation_analysis.csv', index=False)
+```
+
+6.2 QUADRANT CLASSIFICATION
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import pandas as pd
+import numpy as np
+
+# Read analysis data
+analysis_data = gpd.read_file('data/processed/segments_with_vulnerability.shp')
+
+# Calculate medians for classification
+vuln_median = analysis_data['vuln_mean'].median()
+density_median = analysis_data['density_sqft_per_acre'].median()
+
+print(f"Vulnerability median: {vuln_median:.2f}")
+print(f"Density median: {density_median:.1f} sq ft/acre")
+
+# Classify segments into quadrants
+def assign_quadrant(row):
+    if row['vuln_mean'] < vuln_median and row['density_sqft_per_acre'] < density_median:
+        return 'Q1_LowVuln_LowDensity'
+    elif row['vuln_mean'] < vuln_median and row['density_sqft_per_acre'] >= density_median:
+        return 'Q2_LowVuln_HighDensity'
+    elif row['vuln_mean'] >= vuln_median and row['density_sqft_per_acre'] < density_median:
+        return 'Q3_HighVuln_LowDensity'  # PRIORITY GAP
+    else:
+        return 'Q4_HighVuln_HighDensity'
+
+analysis_data['Quadrant'] = analysis_data.apply(assign_quadrant, axis=1)
+
+# Summary by quadrant
+quadrant_summary = analysis_data.groupby('Quadrant').agg({
+    'segment_id': 'count',
+    'vuln_mean': 'mean',
+    'density_sqft_per_acre': 'mean',
+    'length_miles': 'sum'
+}).reset_index()
+
+quadrant_summary.columns = ['Quadrant', 'Segment_Count', 'Avg_Vulnerability', 
+                            'Avg_Density', 'Total_Miles']
+
+print("\n=== Quadrant Classification ===")
+print(quadrant_summary)
+
+# Identify priority gap segments (Q3)
+priority_gaps = analysis_data[analysis_data['Quadrant'] == 'Q3_HighVuln_LowDensity']
+
+print(f"\n=== Priority Gap Segments (Q3) ===")
+print(f"Count: {len(priority_gaps)}")
+print(f"Total length: {priority_gaps['length_miles'].sum():.1f} miles")
+print(f"Mean vulnerability: {priority_gaps['vuln_mean'].mean():.2f}")
+print(f"Mean density: {priority_gaps['density_sqft_per_acre'].mean():.1f} sq ft/acre")
+
+# Save
+analysis_data.to_file('data/processed/segments_with_quadrants.shp')
+priority_gaps.to_file('data/outputs/priority_gap_segments.shp')
+quadrant_summary.to_csv('data/outputs/quadrant_summary.csv', index=False)
+```
+
+6.3 GAP INDEX CALCULATION
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import numpy as np
+
+# Read data
+analysis_data = gpd.read_file('data/processed/segments_with_quadrants.shp')
+
+# Define adequacy threshold (based on Seattle Stormwater Manual or other standard)
+# Example: 1,500 sq ft/acre from Seattle standard
+ADEQUACY_THRESHOLD = 1500  # sq ft/acre
+
+# Calculate gap index
+# Gap = Vulnerability score - Adequacy indicator
+# Adequacy = 1 if density >= threshold, 0 otherwise
+analysis_data['adequacy'] = (
+    analysis_data['density_sqft_per_acre'] >= ADEQUACY_THRESHOLD
+).astype(int)
+
+# Normalize vulnerability to 0-1 scale
+vuln_min = analysis_data['vuln_mean'].min()
+vuln_max = analysis_data['vuln_mean'].max()
+analysis_data['vuln_normalized'] = (
+    (analysis_data['vuln_mean'] - vuln_min) / (vuln_max - vuln_min)
+)
+
+# Gap index: higher values = larger gap
+# Simple version: Vulnerability (0-10) - Adequacy indicator (0-10)
+# Scale adequacy: 0 = meets threshold, negative values = below threshold
+analysis_data['adequacy_scaled'] = (
+    analysis_data['density_sqft_per_acre'] / ADEQUACY_THRESHOLD * 10
+).clip(upper=10)
+
+analysis_data['gap_index'] = (
+    analysis_data['vuln_mean'] - analysis_data['adequacy_scaled']
+)
+
+print("\n=== Gap Index Analysis ===")
+print(f"Gap index range: {analysis_data['gap_index'].min():.2f} to {analysis_data['gap_index'].max():.2f}")
+print(f"Mean gap: {analysis_data['gap_index'].mean():.2f}")
+print(f"Segments with gap > 5: {(analysis_data['gap_index'] > 5).sum()}")
+
+# Identify highest-gap segments
+high_gap = analysis_data.nlargest(10, 'gap_index')[
+    ['segment_id', 'segment_name', 'vuln_mean', 'density_sqft_per_acre', 'gap_index', 'length_miles']
+]
+
+print("\n=== Top 10 Gap Segments ===")
+print(high_gap.to_string())
+
+# Save
+analysis_data.to_file('data/processed/segments_with_gap_index.shp')
+high_gap.to_csv('data/outputs/top_gap_segments.csv', index=False)
+```
+
+6.4 MULTIPLE REGRESSION
+----------------------------------------------------------------------
+Python Code:
+```python
+import pandas as pd
+import geopandas as gpd
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score, mean_squared_error
+import statsmodels.api as sm
+import numpy as np
+
+# Read data
+analysis_data = gpd.read_file('data/processed/segments_with_gap_index.shp')
+
+# Prepare variables
+# Dependent: Infrastructure density
+# Independent: Vulnerability, jurisdiction, land use, segment length
+
+# Create dummy variables for jurisdiction
+jurisdiction_dummies = pd.get_dummies(
+    analysis_data['jurisdiction_name'], 
+    prefix='juris',
+    drop_first=True  # Avoid multicollinearity
+)
+
+# Prepare feature matrix
+features = pd.concat([
+    analysis_data[['vuln_mean', 'length_miles', 'imperv_mean']],
+    jurisdiction_dummies
+], axis=1)
+
+# Handle missing values
+features = features.fillna(features.mean())
+
+# Target variable
+target = analysis_data['density_sqft_per_acre']
+
+# Fit using statsmodels for detailed statistics
+X = sm.add_constant(features)
+model = sm.OLS(target, X).fit()
+
+print("\n=== Multiple Regression Results ===")
+print(model.summary())
+
+# Extract key statistics
+print(f"\nR-squared: {model.rsquared:.3f}")
+print(f"Adjusted R-squared: {model.rsquared_adj:.3f}")
+print(f"F-statistic: {model.fvalue:.2f}")
+print(f"Prob (F-statistic): {model.f_pvalue:.4f}")
+
+# Coefficients
+print("\n=== Coefficients ===")
+coef_df = pd.DataFrame({
+    'Variable': model.params.index,
+    'Coefficient': model.params.values,
+    'Std_Error': model.bse.values,
+    'T_Statistic': model.tvalues.values,
+    'P_Value': model.pvalues.values
+})
+
+print(coef_df.to_string())
+
+# Standardized coefficients (beta weights)
+scaler = StandardScaler()
+X_standardized = scaler.fit_transform(features)
+X_std_with_const = sm.add_constant(X_standardized)
+model_std = sm.OLS(target, X_std_with_const).fit()
+
+beta_weights = pd.DataFrame({
+    'Variable': features.columns,
+    'Beta': model_std.params.values[1:]  # Exclude constant
+})
+
+print("\n=== Standardized Coefficients (Beta Weights) ===")
+print(beta_weights.sort_values('Beta', ascending=False).to_string())
+
+# Save results
+coef_df.to_csv('data/outputs/regression_coefficients.csv', index=False)
+beta_weights.to_csv('data/outputs/regression_beta_weights.csv', index=False)
+
+# Model diagnostics
+residuals = model.resid
+
+# Test for heteroscedasticity (Breusch-Pagan test)
+from statsmodels.stats.diagnostic import het_breuschpagan
+
+bp_test = het_breuschpagan(residuals, X)
+print(f"\n=== Heteroscedasticity Test (Breusch-Pagan) ===")
+print(f"LM Statistic: {bp_test[0]:.3f}")
+print(f"P-value: {bp_test[1]:.4f}")
+if bp_test[1] < 0.05:
+    print("Heteroscedasticity detected - consider robust standard errors")
+
+# Test for normality of residuals (Jarque-Bera)
+from statsmodels.stats.stattools import jarque_bera
+
+jb_test = jarque_bera(residuals)
+print(f"\n=== Normality Test (Jarque-Bera) ===")
+print(f"JB Statistic: {jb_test[0]:.3f}")
+print(f"P-value: {jb_test[1]:.4f}")
+if jb_test[1] < 0.05:
+    print("Residuals not normally distributed - results may be sensitive to outliers")
+```
+
+==================================================================
+7. PHASE 5: SPATIAL CLUSTERING ANALYSIS
+==================================================================
+
+7.1 GLOBAL MORAN'S I
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import numpy as np
+from libpysal.weights import Queen, KNN
+from esda.moran import Moran
+import matplotlib.pyplot as plt
+from splot.esda import plot_moran
+
+# Read segments with analysis variables
+segments = gpd.read_file('data/processed/segments_with_gap_index.shp')
+
+# Create spatial weights matrix
+# Option 1: Queen contiguity (segments touching)
+w_queen = Queen.from_dataframe(segments)
+
+# Option 2: K-nearest neighbors (if segments don't all touch)
+w_knn = KNN.from_dataframe(segments, k=5)
+
+# Row-standardize weights
+w_queen.transform = 'r'
+w_knn.transform = 'r'
+
+# Test for spatial autocorrelation
+def moran_analysis(data, weights, variable_name):
+    """Perform Moran's I analysis"""
+    
+    print(f"\n=== Global Moran's I: {variable_name} ===")
+    
+    # Calculate Moran's I
+    moran = Moran(data, weights)
+    
+    print(f"Moran's I: {moran.I:.4f}")
+    print(f"Expected I: {moran.EI:.4f}")
+    print(f"Variance: {moran.VI_norm:.6f}")
+    print(f"Z-score: {moran.z_norm:.3f}")
+    print(f"P-value: {moran.p_norm:.4f}")
+    
+    if moran.p_norm < 0.05:
+        if moran.I > 0:
+            print("Significant POSITIVE spatial autocorrelation (clustering)")
+        else:
+            print("Significant NEGATIVE spatial autocorrelation (dispersion)")
+    else:
+        print("No significant spatial autocorrelation")
+    
+    return moran
+
+# Analyze vulnerability
+vuln_data = segments['vuln_mean'].values
+moran_vuln = moran_analysis(vuln_data, w_queen, "Vulnerability")
+
+# Analyze infrastructure density
+density_data = segments['density_sqft_per_acre'].values
+moran_density = moran_analysis(density_data, w_queen, "Infrastructure Density")
+
+# Analyze gap index
+gap_data = segments['gap_index'].values
+moran_gap = moran_analysis(gap_data, w_queen, "Gap Index")
+
+# Plot Moran scatter plot
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+plot_moran(moran_vuln, ax=axes[0])
+axes[0].set_title('Vulnerability Spatial Autocorrelation')
+
+plot_moran(moran_density, ax=axes[1])
+axes[1].set_title('Infrastructure Density Spatial Autocorrelation')
+
+plot_moran(moran_gap, ax=axes[2])
+axes[2].set_title('Gap Index Spatial Autocorrelation')
+
+plt.tight_layout()
+plt.savefig('figures/moran_scatterplots.png', dpi=300, bbox_inches='tight')
+plt.close()
+
+print("\nMoran scatter plots saved to figures/moran_scatterplots.png")
+
+# Save results
+results = pd.DataFrame({
+    'Variable': ['Vulnerability', 'Infrastructure_Density', 'Gap_Index'],
+    'Morans_I': [moran_vuln.I, moran_density.I, moran_gap.I],
+    'Expected_I': [moran_vuln.EI, moran_density.EI, moran_gap.EI],
+    'Z_score': [moran_vuln.z_norm, moran_density.z_norm, moran_gap.z_norm],
+    'P_value': [moran_vuln.p_norm, moran_density.p_norm, moran_gap.p_norm]
+})
+
+results.to_csv('data/outputs/global_moran_results.csv', index=False)
+```
+
+7.2 LOCAL MORAN'S I (LISA)
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import numpy as np
+from libpysal.weights import Queen
+from esda.moran import Moran_Local
+import matplotlib.pyplot as plt
+from splot.esda import lisa_cluster
+
+# Read segments
+segments = gpd.read_file('data/processed/segments_with_gap_index.shp')
+
+# Create weights matrix
+w = Queen.from_dataframe(segments)
+w.transform = 'r'
+
+# Calculate Local Moran's I for gap index
+gap_data = segments['gap_index'].values
+
+lisa = Moran_Local(gap_data, w, permutations=999)
+
+# Add LISA results to dataframe
+segments['lisa_I'] = lisa.Is
+segments['lisa_pvalue'] = lisa.p_sim
+segments['lisa_qvalue'] = lisa.q  # Quadrant: HH, LL, LH, HL
+
+# Classify significance
+segments['lisa_sig'] = segments['lisa_pvalue'] < 0.05
+
+# Classify cluster types
+cluster_labels = {
+    1: 'HH (High-High)',
+    2: 'LH (Low-High)',
+    3: 'LL (Low-Low)',
+    4: 'HL (High-Low)',
+    0: 'Not Significant'
+}
+
+def classify_cluster(row):
+    if not row['lisa_sig']:
+        return 'Not Significant'
+    return cluster_labels[row['lisa_qvalue']]
+
+segments['lisa_cluster'] = segments.apply(classify_cluster, axis=1)
+
+# Summary
+print("\n=== LISA Cluster Summary ===")
+print(segments['lisa_cluster'].value_counts())
+
+# Identify significant clusters
+hh_clusters = segments[segments['lisa_cluster'] == 'HH (High-High)']
+ll_clusters = segments[segments['lisa_cluster'] == 'LL (Low-Low)']
+
+print(f"\nHigh-High clusters (high gap surrounded by high gap): {len(hh_clusters)}")
+print(f"Low-Low clusters (low gap surrounded by low gap): {len(ll_clusters)}")
+
+# Save
+segments.to_file('data/processed/segments_with_lisa.shp')
+
+# Create cluster map
+fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+lisa_cluster(lisa, segments, p=0.05, ax=ax)
+ax.set_title('LISA Cluster Map: Gap Index', fontsize=14)
+ax.axis('off')
+plt.savefig('figures/lisa_cluster_map.png', dpi=300, bbox_inches='tight')
+plt.close()
+
+print("LISA cluster map saved to figures/lisa_cluster_map.png")
+
+# Detailed cluster analysis
+print("\n=== High-High Gap Clusters ===")
+if len(hh_clusters) > 0:
+    hh_summary = hh_clusters[['segment_id', 'segment_name', 'gap_index', 
+                               'vuln_mean', 'density_sqft_per_acre', 'length_miles']]
+    print(hh_summary.to_string())
+    hh_summary.to_csv('data/outputs/high_high_gap_clusters.csv', index=False)
+```
+
+[CONTINUED IN NEXT FILE...]
+METHODOLOGY GUIDE - PART 3
+Hot Spot Analysis and Runoff Modeling
+
+==================================================================
+7.3 HOT SPOT ANALYSIS (GETIS-ORD GI*)
+==================================================================
+
+Python Code:
+```python
+import geopandas as gpd
+import numpy as np
+from libpysal.weights import DistanceBand
+from esda.getisord import G_Local
+import matplotlib.pyplot as plt
+
+# Read segments
+segments = gpd.read_file('data/processed/segments_with_lisa.shp')
+
+# Create distance-based weights
+# 3-mile (15,840 feet) distance band - adjust based on study area
+w_dist = DistanceBand.from_dataframe(segments, threshold=15840, binary=False)
+w_dist.transform = 'r'
+
+# Calculate Getis-Ord Gi* for gap index
+gap_data = segments['gap_index'].values
+
+gi_star = G_Local(gap_data, w_dist, transform='r', permutations=999, star=True)
+
+# Add to dataframe
+segments['gi_star'] = gi_star.Zs
+segments['gi_pvalue'] = gi_star.p_sim
+
+# Classify hot spots and cold spots
+def classify_hotspot(row):
+    if row['gi_pvalue'] >= 0.10:
+        return 'Not Significant'
+    elif row['gi_star'] > 2.58:  # 99% confidence
+        return 'Hot Spot (99%)'
+    elif row['gi_star'] > 1.96:  # 95% confidence
+        return 'Hot Spot (95%)'
+    elif row['gi_star'] > 1.65:  # 90% confidence
+        return 'Hot Spot (90%)'
+    elif row['gi_star'] < -2.58:
+        return 'Cold Spot (99%)'
+    elif row['gi_star'] < -1.96:
+        return 'Cold Spot (95%)'
+    elif row['gi_star'] < -1.65:
+        return 'Cold Spot (90%)'
+    else:
+        return 'Not Significant'
+
+segments['hotspot_class'] = segments.apply(classify_hotspot, axis=1)
+
+# Summary
+print("\n=== Hot Spot Analysis (Getis-Ord Gi*) ===")
+print(segments['hotspot_class'].value_counts())
+
+# Identify significant hot spots (high gap clusters)
+hot_spots = segments[segments['hotspot_class'].str.contains('Hot Spot')]
+
+print(f"\nSignificant hot spots: {len(hot_spots)}")
+print(f"Total length of hot spots: {hot_spots['length_miles'].sum():.1f} miles")
+
+if len(hot_spots) > 0:
+    print("\n=== Hot Spot Details ===")
+    hot_spot_summary = hot_spots[['segment_id', 'segment_name', 'gap_index', 
+                                   'gi_star', 'gi_pvalue', 'length_miles']]
+    print(hot_spot_summary.to_string())
+    hot_spot_summary.to_csv('data/outputs/gap_hot_spots.csv', index=False)
+
+# Identify cold spots (well-protected clusters)
+cold_spots = segments[segments['hotspot_class'].str.contains('Cold Spot')]
+
+print(f"\nSignificant cold spots: {len(cold_spots)}")
+print(f"Total length of cold spots: {cold_spots['length_miles'].sum():.1f} miles")
+
+# Save
+segments.to_file('data/processed/segments_with_hotspots.shp')
+
+# Create hot spot map
+fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+
+# Plot by hot spot classification
+color_map = {
+    'Hot Spot (99%)': '#d73027',
+    'Hot Spot (95%)': '#fc8d59',
+    'Hot Spot (90%)': '#fee090',
+    'Not Significant': '#eeeeee',
+    'Cold Spot (90%)': '#e0f3f8',
+    'Cold Spot (95%)': '#91bfdb',
+    'Cold Spot (99%)': '#4575b4'
+}
+
+for category, color in color_map.items():
+    subset = segments[segments['hotspot_class'] == category]
+    if len(subset) > 0:
+        subset.plot(ax=ax, color=color, edgecolor='black', linewidth=0.5, label=category)
+
+ax.set_title('Hot Spot Analysis: Protection Gap Index', fontsize=14)
+ax.legend(loc='upper right', fontsize=10)
+ax.axis('off')
+plt.savefig('figures/hotspot_map.png', dpi=300, bbox_inches='tight')
+plt.close()
+
+print("Hot spot map saved to figures/hotspot_map.png")
+```
+
+==================================================================
+8. PHASE 6: RUNOFF REDUCTION MODELING
+==================================================================
+
+8.1 SCS CURVE NUMBER PREPARATION
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import rasterio
+import numpy as np
+from rasterstats import zonal_stats
+
+# Read segments
+segments = gpd.read_file('data/processed/segments_with_hotspots.shp')
+
+# SCS Curve Number lookup table
+# Based on land cover and hydrologic soil group
+# Table from USDA TR-55
+
+CN_LOOKUP = {
+    # Urban land uses
+    ('developed_high', 'A'): 77, ('developed_high', 'B'): 85, 
+    ('developed_high', 'C'): 90, ('developed_high', 'D'): 92,
+    
+    ('developed_medium', 'A'): 61, ('developed_medium', 'B'): 75, 
+    ('developed_medium', 'C'): 83, ('developed_medium', 'D'): 87,
+    
+    ('developed_low', 'A'): 54, ('developed_low', 'B'): 70, 
+    ('developed_low', 'C'): 80, ('developed_low', 'D'): 85,
+    
+    ('developed_open', 'A'): 49, ('developed_open', 'B'): 69, 
+    ('developed_open', 'C'): 79, ('developed_open', 'D'): 84,
+    
+    # Industrial/commercial (good condition)
+    ('industrial', 'A'): 81, ('industrial', 'B'): 88, 
+    ('industrial', 'C'): 91, ('industrial', 'D'): 93,
+    
+    # Transportation (impervious)
+    ('transportation', 'A'): 98, ('transportation', 'B'): 98, 
+    ('transportation', 'C'): 98, ('transportation', 'D'): 98,
+    
+    # Open space/parks (good condition)
+    ('open_space', 'A'): 39, ('open_space', 'B'): 61, 
+    ('open_space', 'C'): 74, ('open_space', 'D'): 80,
+}
+
+# Alternative: Calculate CN from imperviousness
+# Simplified relationship: CN ≈ 25 + (0.7 × Imperviousness%)
+def calculate_cn_from_imperviousness(imperv_pct, hsg):
+    """Estimate CN from imperviousness percentage and HSG"""
+    
+    # Base CN by HSG
+    base_cn = {'A': 25, 'B': 45, 'C': 60, 'D': 70}
+    
+    # Adjust for imperviousness
+    cn = base_cn[hsg] + (0.7 * imperv_pct)
+    
+    # Cap at 98 (fully impervious)
+    return min(cn, 98)
+
+# For each segment, calculate composite CN
+segments['cn_current'] = None
+
+for idx, row in segments.iterrows():
+    # Get average imperviousness and dominant HSG
+    imperv_pct = row['imperv_mean']
+    
+    # Get soil data (would need zonal stats from soil layer)
+    # Assuming you have this from earlier processing
+    if 'dominant_hsg' in segments.columns:
+        hsg = row['dominant_hsg']
+    else:
+        hsg = 'C'  # Default to moderate infiltration
+    
+    # Calculate CN
+    cn = calculate_cn_from_imperviousness(imperv_pct, hsg)
+    segments.at[idx, 'cn_current'] = cn
+
+print("\n=== Curve Number Statistics ===")
+print(f"Mean CN: {segments['cn_current'].mean():.1f}")
+print(f"Range: {segments['cn_current'].min():.1f} to {segments['cn_current'].max():.1f}")
+
+# Adjust CN for existing permeable pavement
+# Reduction factor based on infrastructure density
+def adjust_cn_for_gsi(cn_current, density_sqft_per_acre):
+    """Reduce CN based on existing GSI"""
+    
+    # Assume each 1,000 sq ft/acre reduces CN by 2 points
+    # (based on literature: permeable pavement can reduce CN by 20-30%)
+    reduction_factor = density_sqft_per_acre / 1000 * 2
+    
+    cn_adjusted = cn_current - reduction_factor
+    
+    # Minimum CN cannot be below pervious grass (CN ~30-40)
+    return max(cn_adjusted, 35)
+
+segments['cn_with_current_gsi'] = segments.apply(
+    lambda row: adjust_cn_for_gsi(row['cn_current'], row['density_sqft_per_acre']),
+    axis=1
+)
+
+print(f"\nMean CN with current GSI: {segments['cn_with_current_gsi'].mean():.1f}")
+
+segments.to_file('data/processed/segments_with_curve_numbers.shp')
+```
+
+8.2 DESIGN STORM DEPTHS
+----------------------------------------------------------------------
+Python Code:
+```python
+import pandas as pd
+import numpy as np
+
+# NOAA Atlas 14 design storm depths for Seattle-Tacoma
+# Location: 47.45°N, 122.31°W (Sea-Tac Airport)
+
+# 24-hour precipitation depths (inches) by return period
+DESIGN_STORMS = {
+    '2-year': 2.2,   # Most common design storm
+    '5-year': 2.6,
+    '10-year': 2.9,
+    '25-year': 3.4,
+    '50-year': 3.8,
+    '100-year': 4.3
+}
+
+print("\n=== Design Storm Depths (NOAA Atlas 14) ===")
+print("24-hour precipitation depths:")
+for storm, depth in DESIGN_STORMS.items():
+    print(f"{storm}: {depth} inches")
+
+# For this analysis, use 2-year, 10-year, and 25-year
+ANALYSIS_STORMS = ['2-year', '10-year', '25-year']
+```
+
+8.3 RUNOFF VOLUME CALCULATION (SCS METHOD)
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import pandas as pd
+import numpy as np
+
+# Read segments with curve numbers
+segments = gpd.read_file('data/processed/segments_with_curve_numbers.shp')
+
+def calculate_runoff_depth(precip_inches, curve_number):
+    """
+    Calculate runoff depth using SCS Curve Number method
+    
+    Q = (P - Ia)^2 / (P - Ia + S)
+    where:
+    Q = runoff depth (inches)
+    P = precipitation depth (inches)
+    Ia = initial abstraction = 0.2 * S (inches)
+    S = potential maximum retention = (1000/CN - 10) (inches)
+    """
+    
+    # Calculate potential maximum retention
+    S = (1000 / curve_number) - 10
+    
+    # Calculate initial abstraction
+    Ia = 0.2 * S
+    
+    # Calculate runoff (only if P > Ia)
+    if precip_inches > Ia:
+        Q = (precip_inches - Ia)**2 / (precip_inches - Ia + S)
+    else:
+        Q = 0
+    
+    return Q
+
+# Calculate runoff for each storm and each segment
+for storm in ANALYSIS_STORMS:
+    precip = DESIGN_STORMS[storm]
+    
+    # Current conditions (with existing GSI)
+    segments[f'runoff_current_{storm}'] = segments['cn_with_current_gsi'].apply(
+        lambda cn: calculate_runoff_depth(precip, cn)
+    )
+    
+    # No GSI baseline (for comparison)
+    segments[f'runoff_no_gsi_{storm}'] = segments['cn_current'].apply(
+        lambda cn: calculate_runoff_depth(precip, cn)
+    )
+
+# Calculate runoff volumes (depth × area)
+# Buffer area already in acres
+for storm in ANALYSIS_STORMS:
+    # Convert inches to feet, multiply by area in acres, convert to acre-feet
+    segments[f'volume_current_{storm}_acft'] = (
+        segments[f'runoff_current_{storm}'] / 12 * 
+        segments['buffer_area_acres']
+    )
+    
+    segments[f'volume_no_gsi_{storm}_acft'] = (
+        segments[f'runoff_no_gsi_{storm}'] / 12 * 
+        segments['buffer_area_acres']
+    )
+
+# Total corridor-wide runoff volumes
+print("\n=== Current Conditions Runoff Volumes ===")
+for storm in ANALYSIS_STORMS:
+    total_vol = segments[f'volume_current_{storm}_acft'].sum()
+    print(f"{storm} storm: {total_vol:.0f} acre-feet")
+
+print("\n=== Runoff Reduction from Existing GSI ===")
+for storm in ANALYSIS_STORMS:
+    vol_no_gsi = segments[f'volume_no_gsi_{storm}_acft'].sum()
+    vol_current = segments[f'volume_current_{storm}_acft'].sum()
+    reduction = vol_no_gsi - vol_current
+    pct_reduction = (reduction / vol_no_gsi * 100)
+    
+    print(f"{storm} storm: {reduction:.0f} acre-feet reduction ({pct_reduction:.1f}%)")
+
+segments.to_file('data/processed/segments_with_runoff_volumes.shp')
+```
+
+8.4 OPTIMAL ALLOCATION SCENARIO
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+
+# Read segments with runoff data
+segments = gpd.read_file('data/processed/segments_with_runoff_volumes.shp')
+
+# Current total infrastructure
+TOTAL_EXISTING_SQFT = segments['total_area_sqft'].sum()
+
+print(f"\n=== Optimal Allocation Scenario ===")
+print(f"Total existing infrastructure: {TOTAL_EXISTING_SQFT:,.0f} sq ft")
+
+# Redistribution strategy: 
+# Allocate infrastructure proportional to vulnerability × area
+segments['allocation_weight'] = (
+    segments['vuln_mean'] * 
+    segments['buffer_area_acres']
+)
+
+segments['allocation_weight'] = (
+    segments['allocation_weight'] / 
+    segments['allocation_weight'].sum()
+)
+
+segments['optimized_sqft'] = (
+    segments['allocation_weight'] * TOTAL_EXISTING_SQFT
+)
+
+segments['optimized_density'] = (
+    segments['optimized_sqft'] / segments['buffer_area_acres']
+)
+
+print(f"\nOptimized density range: {segments['optimized_density'].min():.0f} to {segments['optimized_density'].max():.0f} sq ft/acre")
+
+# Calculate new curve numbers with optimized allocation
+def calculate_optimized_cn(row):
+    """Calculate CN with optimized GSI allocation"""
+    cn_base = row['cn_current']
+    optimized_density = row['optimized_density']
+    
+    # Same reduction function as before
+    reduction = optimized_density / 1000 * 2
+    cn_optimized = cn_base - reduction
+    
+    return max(cn_optimized, 35)
+
+segments['cn_optimized'] = segments.apply(calculate_optimized_cn, axis=1)
+
+# Calculate runoff volumes with optimized allocation
+for storm in ANALYSIS_STORMS:
+    precip = DESIGN_STORMS[storm]
+    
+    segments[f'runoff_optimized_{storm}'] = segments['cn_optimized'].apply(
+        lambda cn: calculate_runoff_depth(precip, cn)
+    )
+    
+    segments[f'volume_optimized_{storm}_acft'] = (
+        segments[f'runoff_optimized_{storm}'] / 12 * 
+        segments['buffer_area_acres']
+    )
+
+# Compare scenarios
+print("\n=== Runoff Comparison: Current vs. Optimized ===")
+for storm in ANALYSIS_STORMS:
+    vol_current = segments[f'volume_current_{storm}_acft'].sum()
+    vol_optimized = segments[f'volume_optimized_{storm}_acft'].sum()
+    reduction = vol_current - vol_optimized
+    pct_reduction = (reduction / vol_current * 100)
+    
+    print(f"\n{storm} storm:")
+    print(f"  Current: {vol_current:.0f} acre-feet")
+    print(f"  Optimized: {vol_optimized:.0f} acre-feet")
+    print(f"  Additional reduction: {reduction:.0f} acre-feet ({pct_reduction:.1f}%)")
+
+# Identify segments with largest potential benefit
+segments['potential_benefit'] = (
+    segments['volume_current_10-year_acft'] - 
+    segments['volume_optimized_10-year_acft']
+)
+
+top_benefit = segments.nlargest(10, 'potential_benefit')[
+    ['segment_id', 'segment_name', 'vuln_mean', 
+     'density_sqft_per_acre', 'optimized_density', 'potential_benefit']
+]
+
+print("\n=== Top 10 Segments for Optimization Benefit ===")
+print(top_benefit.to_string())
+
+segments.to_file('data/processed/segments_with_optimization.shp')
+top_benefit.to_csv('data/outputs/optimization_priorities.csv', index=False)
+```
+
+==================================================================
+9. VALIDATION AND ROBUSTNESS CHECKS
+==================================================================
+
+9.1 SENSITIVITY ANALYSIS: VULNERABILITY WEIGHTS
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import numpy as np
+from scipy import stats
+
+# Read base vulnerability components
+topo = rasterio.open('data/processed/topographic_vulnerability.tif').read(1)
+slope = rasterio.open('data/processed/slope_vulnerability.tif').read(1)
+soil = rasterio.open('data/processed/soil_vulnerability.tif').read(1)
+imperv = rasterio.open('data/processed/imperv_vulnerability.tif').read(1)
+drainage = rasterio.open('data/processed/drainage_vulnerability.tif').read(1)
+
+# Read segments and infrastructure
+segments = gpd.read_file('data/processed/segments_with_optimization.shp')
+
+# Test alternative weighting schemes
+WEIGHT_SCHEMES = {
+    'Base': {'topo': 0.25, 'slope': 0.15, 'soil': 0.20, 'imperv': 0.25, 'drainage': 0.15},
+    'Topo_Heavy': {'topo': 0.35, 'slope': 0.15, 'soil': 0.15, 'imperv': 0.20, 'drainage': 0.15},
+    'Imperv_Heavy': {'topo': 0.20, 'slope': 0.10, 'soil': 0.15, 'imperv': 0.40, 'drainage': 0.15},
+    'Soil_Heavy': {'topo': 0.20, 'slope': 0.10, 'soil': 0.35, 'imperv': 0.20, 'drainage': 0.15},
+    'Equal': {'topo': 0.20, 'slope': 0.20, 'soil': 0.20, 'imperv': 0.20, 'drainage': 0.20}
+}
+
+results = []
+
+for scheme_name, weights in WEIGHT_SCHEMES.items():
+    # Calculate composite vulnerability with this scheme
+    vuln_composite = (
+        weights['topo'] * topo +
+        weights['slope'] * slope +
+        weights['soil'] * soil +
+        weights['imperv'] * imperv +
+        weights['drainage'] * drainage
+    )
+    
+    # Extract zonal statistics for segments
+    from rasterstats import zonal_stats
+    
+    vuln_stats = zonal_stats(
+        segments,
+        vuln_composite,
+        stats=['mean'],
+        nodata=-999
+    )
+    
+    vuln_means = [s['mean'] for s in vuln_stats]
+    
+    # Correlation with infrastructure density
+    r, p = stats.pearsonr(vuln_means, segments['density_sqft_per_acre'])
+    
+    results.append({
+        'Scheme': scheme_name,
+        'Correlation_r': r,
+        'P_value': p,
+        'Mean_Vulnerability': np.mean(vuln_means),
+        'Std_Vulnerability': np.std(vuln_means)
+    })
+
+results_df = pd.DataFrame(results)
+
+print("\n=== Sensitivity Analysis: Vulnerability Weighting ===")
+print(results_df.to_string())
+
+# Check if correlation sign/significance changes
+print("\n=== Robustness Check ===")
+if all(results_df['Correlation_r'] < 0):
+    print("Inverse correlation ROBUST across all weighting schemes")
+elif all(results_df['Correlation_r'] > 0):
+    print("Positive correlation ROBUST across all weighting schemes")
+else:
+    print("WARNING: Correlation direction varies by weighting scheme")
+
+results_df.to_csv('data/outputs/sensitivity_weighting.csv', index=False)
+```
+
+9.2 SENSITIVITY ANALYSIS: BUFFER DISTANCE
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+from scipy import stats
+import pandas as pd
+
+# Compare correlations across buffer distances
+buffer_results = []
+
+for buffer_dist in ['100m', '250m', '500m']:
+    # Read segments for this buffer
+    segments = gpd.read_file(f'data/processed/segments_{buffer_dist}_with_density.shp')
+    
+    # Merge with vulnerability data
+    vuln_data = gpd.read_file('data/processed/segments_with_vulnerability.shp')
+    segments = segments.merge(
+        vuln_data[['segment_id', 'vuln_mean']], 
+        on='segment_id'
+    )
+    
+    # Remove missing data
+    segments = segments.dropna(subset=['vuln_mean', 'density_sqft_per_acre'])
+    
+    # Correlation
+    r, p = stats.pearsonr(segments['vuln_mean'], segments['density_sqft_per_acre'])
+    
+    buffer_results.append({
+        'Buffer_Distance': buffer_dist,
+        'N_Segments': len(segments),
+        'Mean_Density': segments['density_sqft_per_acre'].mean(),
+        'Correlation_r': r,
+        'P_value': p
+    })
+
+results_df = pd.DataFrame(buffer_results)
+
+print("\n=== Sensitivity Analysis: Buffer Distance ===")
+print(results_df.to_string())
+
+# Check distance decay
+print("\n=== Distance Decay Pattern ===")
+print(f"Density decreases with distance: {results_df['Mean_Density'].is_monotonic_decreasing}")
+
+results_df.to_csv('data/outputs/sensitivity_buffer_distance.csv', index=False)
+```
+
+9.3 MONTE CARLO SIMULATION: CN UNCERTAINTY
+----------------------------------------------------------------------
+Python Code:
+```python
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+# Read segments
+segments = gpd.read_file('data/processed/segments_with_runoff_volumes.shp')
+
+# Number of simulations
+N_SIMS = 1000
+
+print(f"\n=== Monte Carlo Simulation (n={N_SIMS}) ===")
+print("Varying Curve Numbers by ±8 points")
+
+# Storage for simulation results
+sim_results = {storm: [] for storm in ANALYSIS_STORMS}
+
+# Run simulations
+np.random.seed(42)  # Reproducibility
+
+for sim in range(N_SIMS):
+    # Add random variation to CN (±8 points, normal distribution)
+    cn_varied = segments['cn_with_current_gsi'] + np.random.normal(0, 4, len(segments))
+    cn_varied = np.clip(cn_varied, 30, 98)  # Keep in valid range
+    
+    # Calculate runoff for each storm
+    for storm in ANALYSIS_STORMS:
+        precip = DESIGN_STORMS[storm]
+        
+        runoff_depths = [calculate_runoff_depth(precip, cn) for cn in cn_varied]
+        
+        # Total volume
+        volumes = (np.array(runoff_depths) / 12) * segments['buffer_area_acres'].values
+        total_volume = volumes.sum()
+        
+        sim_results[storm].append(total_volume)
+
+# Analyze results
+print("\n=== Runoff Volume Uncertainty (acre-feet) ===")
+for storm in ANALYSIS_STORMS:
+    mean = np.mean(sim_results[storm])
+    std = np.std(sim_results[storm])
+    ci_95 = 1.96 * std
+    
+    # Percentiles
+    p5 = np.percentile(sim_results[storm], 5)
+    p95 = np.percentile(sim_results[storm], 95)
+    
+    print(f"\n{storm} storm:")
+    print(f"  Mean: {mean:.0f} ± {std:.0f} acre-feet")
+    print(f"  95% CI: [{mean-ci_95:.0f}, {mean+ci_95:.0f}]")
+    print(f"  5th-95th percentile: [{p5:.0f}, {p95:.0f}]")
+
+# Save simulation results
+sim_summary = pd.DataFrame({
+    'Storm': ANALYSIS_STORMS,
+    'Mean': [np.mean(sim_results[s]) for s in ANALYSIS_STORMS],
+    'Std': [np.std(sim_results[s]) for s in ANALYSIS_STORMS],
+    'P5': [np.percentile(sim_results[s], 5) for s in ANALYSIS_STORMS],
+    'P95': [np.percentile(sim_results[s], 95) for s in ANALYSIS_STORMS]
+})
+
+sim_summary.to_csv('data/outputs/monte_carlo_results.csv', index=False)
+```
+
+==================================================================
+10. VISUALIZATION AND REPORTING
+==================================================================
+
+10.1 COMPREHENSIVE MAP LAYOUT
+----------------------------------------------------------------------
+Python Code:
+```python
+import geopandas as gpd
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
+import contextily as ctx
+
+# Read final datasets
+segments = gpd.read_file('data/processed/segments_with_optimization.shp')
+
+# Create multi-panel map
+fig = plt.figure(figsize=(20, 12))
+gs = gridspec.GridSpec(2, 3, figure=fig, wspace=0.3, hspace=0.3)
+
+# Convert to Web Mercator for basemap
+segments_web = segments.to_crs(epsg=3857)
+
+# Panel 1: Vulnerability
+ax1 = fig.add_subplot(gs[0, 0])
+segments_web.plot(column='vuln_mean', cmap='YlOrRd', legend=True,
+                  ax=ax1, edgecolor='black', linewidth=0.5)
+ctx.add_basemap(ax1, source=ctx.providers.CartoDB.Positron, alpha=0.5)
+ax1.set_title('Flood Vulnerability Index', fontsize=14)
+ax1.axis('off')
+
+# Panel 2: Current Infrastructure Density
+ax2 = fig.add_subplot(gs[0, 1])
+segments_web.plot(column='density_sqft_per_acre', cmap='YlGn', legend=True,
+                  ax=ax2, edgecolor='black', linewidth=0.5)
+ctx.add_basemap(ax2, source=ctx.providers.CartoDB.Positron, alpha=0.5)
+ax2.set_title('Infrastructure Density (sq ft/acre)', fontsize=14)
+ax2.axis('off')
+
+# Panel 3: Gap Index
+ax3 = fig.add_subplot(gs[0, 2])
+segments_web.plot(column='gap_index', cmap='RdYlBu_r', legend=True,
+                  ax=ax3, edgecolor='black', linewidth=0.5)
+ctx.add_basemap(ax3, source=ctx.providers.CartoDB.Positron, alpha=0.5)
+ax3.set_title('Protection Gap Index', fontsize=14)
+ax3.axis('off')
+
+# Panel 4: Hot Spots
+ax4 = fig.add_subplot(gs[1, 0])
+# Color by hot spot class
+hotspot_colors = {
+    'Hot Spot (99%)': '#d73027',
+    'Hot Spot (95%)': '#fc8d59',
+    'Hot Spot (90%)': '#fee090',
+    'Not Significant': '#eeeeee',
+    'Cold Spot (90%)': '#e0f3f8',
+    'Cold Spot (95%)': '#91bfdb',
+    'Cold Spot (99%)': '#4575b4'
+}
+for cat, color in hotspot_colors.items():
+    subset = segments_web[segments_web['hotspot_class'] == cat]
+    if len(subset) > 0:
+        subset.plot(ax=ax4, color=color, edgecolor='black', linewidth=0.5)
+ctx.add_basemap(ax4, source=ctx.providers.CartoDB.Positron, alpha=0.5)
+ax4.set_title('Hot Spot Analysis', fontsize=14)
+ax4.axis('off')
+
+# Panel 5: Optimized Allocation
+ax5 = fig.add_subplot(gs[1, 1])
+segments_web.plot(column='optimized_density', cmap='YlGn', legend=True,
+                  ax=ax5, edgecolor='black', linewidth=0.5)
+ctx.add_basemap(ax5, source=ctx.providers.CartoDB.Positron, alpha=0.5)
+ax5.set_title('Optimized Infrastructure Allocation', fontsize=14)
+ax5.axis('off')
+
+# Panel 6: Runoff Reduction Potential
+ax6 = fig.add_subplot(gs[1, 2])
+segments_web.plot(column='potential_benefit', cmap='Purples', legend=True,
+                  ax=ax6, edgecolor='black', linewidth=0.5)
+ctx.add_basemap(ax6, source=ctx.providers.CartoDB.Positron, alpha=0.5)
+ax6.set_title('Runoff Reduction Potential (acre-ft)', fontsize=14)
+ax6.axis('off')
+
+plt.suptitle('Seattle-Tacoma Rail Corridor: Comprehensive Spatial Analysis', 
+             fontsize=16, fontweight='bold', y=0.98)
+
+plt.savefig('figures/comprehensive_map_layout.png', dpi=300, bbox_inches='tight')
+plt.close()
+
+print("Comprehensive map saved to figures/comprehensive_map_layout.png")
+```
+
+10.2 FINAL SUMMARY STATISTICS TABLE
+----------------------------------------------------------------------
+Python Code:
+```python
+import pandas as pd
+
+# Compile all key statistics
+summary_stats = {
+    'Study Area': {
+        'Total Corridor Length (miles)': segments['length_miles'].sum(),
+        'Number of Analysis Segments': len(segments),
+        'Number of Jurisdictions': segments['jurisdiction_name'].nunique(),
+        'Total Buffer Area (250m, acres)': segments['buffer_area_acres'].sum()
+    },
+    
+    'Infrastructure Inventory': {
+        'Total Facilities': segments['facility_count'].sum(),
+        'Total Infrastructure Area (sq ft)': segments['total_area_sqft'].sum(),
+        'Mean Density (sq ft/acre)': segments['density_sqft_per_acre'].mean(),
+        'Median Density (sq ft/acre)': segments['density_sqft_per_acre'].median(),
+        'Segments with Zero Infrastructure': (segments['facility_count'] == 0).sum()
+    },
+    
+    'Vulnerability Assessment': {
+        'Mean Vulnerability Index': segments['vuln_mean'].mean(),
+        'Std Dev Vulnerability': segments['vuln_mean'].std(),
+        'Low Vulnerability Segments': (segments['vuln_class'] == 'Low').sum(),
+        'Moderate Vulnerability Segments': (segments['vuln_class'] == 'Moderate').sum(),
+        'High Vulnerability Segments': (segments['vuln_class'] == 'High').sum()
+    },
+    
+    'Alignment Analysis': {
+        'Pearson Correlation (r)': f"{pearson_r:.3f} (p={pearson_p:.4f})",
+        'Spearman Correlation (ρ)': f"{spearman_r:.3f} (p={spearman_p:.4f})",
+        'Priority Gap Segments (Q3)': len(priority_gaps),
+        'Mean Gap Index': segments['gap_index'].mean(),
+        'Segments with Gap > 5': (segments['gap_index'] > 5).sum()
+    },
+    
+    'Spatial Clustering': {
+        'Global Morans I (Gap)': f"{moran_gap.I:.3f} (p={moran_gap.p_norm:.4f})",
+        'Significant Hot Spots': len(hot_spots),
+        'Significant Cold Spots': len(cold_spots),
+        'High-High LISA Clusters': len(hh_clusters),
+        'Low-Low LISA Clusters': len(ll_clusters)
+    },
+    
+    'Runoff Modeling': {
+        '2-year Storm Current (ac-ft)': segments['volume_current_2-year_acft'].sum(),
+        '10-year Storm Current (ac-ft)': segments['volume_current_10-year_acft'].sum(),
+        '25-year Storm Current (ac-ft)': segments['volume_current_25-year_acft'].sum(),
+        'Optimization Potential (10-yr, ac-ft)': segments['potential_benefit'].sum()
+    }
+}
+
+# Convert to DataFrame
+summary_df = pd.DataFrame([
+    {'Category': cat, 'Metric': metric, 'Value': value}
+    for cat, metrics in summary_stats.items()
+    for metric, value in metrics.items()
+])
+
+print("\n=== FINAL SUMMARY STATISTICS ===")
+for category in summary_stats.keys():
+    print(f"\n{category}:")
+    cat_data = summary_df[summary_df['Category'] == category]
+    for _, row in cat_data.iterrows():
+        print(f"  {row['Metric']}: {row['Value']}")
+
+# Save
+summary_df.to_csv('data/outputs/final_summary_statistics.csv', index=False)
+
+print("\nSummary statistics saved to data/outputs/final_summary_statistics.csv")
+```
+
+==================================================================
+END OF METHODOLOGY GUIDE
+==================================================================
+
+All code examples are provided as templates. Actual implementation
+will require:
+1. Adapting file paths to your directory structure
+2. Adjusting column names based on actual data attributes
+3. Handling jurisdiction-specific data variations
+4. Quality control and validation at each step
+5. Iterative refinement based on preliminary results
+
+For questions or clarification on specific methods, consult:
+- USDA NRCS TR-55 (runoff modeling)
+- PyS AL documentation (spatial statistics)
+- ArcGIS/QGIS documentation (GIS processing)
+- Sound Transit technical reports (rail-specific context)
