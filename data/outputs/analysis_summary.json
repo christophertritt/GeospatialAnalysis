@@ -3,16 +3,16 @@
   "crs": "EPSG:2927",
   "results": {
     "alignment": {
-      "correlation_r": 0.0182150679513364,
-      "correlation_p": 0.4468735332003706,
+      "correlation_r": -0.10556555811092917,
+      "correlation_p": 9.85771770443895e-06,
       "vuln_median": 8.5,
       "density_median": 0.0
     },
     "spatial_clustering": {
       "morans_i": {
-        "I": 0.8010907667345574,
+        "I": 0.910837668614406,
         "expected_I": -0.0005730659025787965,
-        "z_score": 51.019242032953635,
+        "z_score": 58.003720465709904,
         "p_value": 0.0,
         "interpretation": "Significant positive spatial autocorrelation (clustering)"
       }
